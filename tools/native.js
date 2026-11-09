@@ -5,7 +5,12 @@
   window.addEventListener('unhandledrejection', e => { try{ webkit.messageHandlers.wird.postMessage({t:'jserr', m: 'promise: ' + (e.reason && e.reason.message || e.reason)}) }catch(_){} });
   const post = (t, d) => { try{ webkit.messageHandlers.wird.postMessage(Object.assign({t}, d||{})) }catch(e){} };
   window.wirdPost = post;
-  let ENV = {group:true, live:false, liveOn:false, pip:false, pipOn:false, place:'', times:null, notif:'unknown'};
+  let ENV = {store:'', live:false, liveOn:false, pip:false, pipOn:false, notif:'unknown'};
+  const REMT = {morning:'05:30', evening:'16:15', kahf:'09:00', mulk:'21:30', sahar:'04:00'};
+  S.rem = Object.assign({morning:true, evening:true, kahf:true, mulk:false, sahar:false}, S.rem||{}); delete S.rem.prayer;
+  S.remT = Object.assign({}, REMT, S.remT||{});
+  const remPayload = () => ({rem: S.rem, times: S.remT});
+  const themeMsg = () => { const d = resolvedDark(), c = (PAL[S.pal]||PAL.navy)[d?'dark':'light']; return {dark: d, bg: c.bg} };
 
   /* --- counts: native store is the source of truth --- */
   const _istAdd = istAdd;
@@ -21,8 +26,8 @@
     }, 250);
   }
   const _saveIst = saveIst; saveIst = function(){ _saveIst(); sendMeta() };
-  const _saveS = saveS; saveS = function(){ _saveS(); sendMeta(); post('settings', {rem: S.rem}) };
-  const _applyTheme = applyTheme; applyTheme = function(){ _applyTheme(); post('theme', {dark: resolvedDark()}) };
+  const _saveS = saveS; saveS = function(){ _saveS(); sendMeta(); post('settings', remPayload()) };
+  const _applyTheme = applyTheme; let lastTheme = ''; applyTheme = function(){ _applyTheme(); const m = themeMsg(), k = m.dark+m.bg; if (k!==lastTheme){ lastTheme = k; post('theme', m) } };
   const _kahf = markKahfRead; markKahfRead = function(){ const was = kahfDone(); _kahf(); if (!was && kahfDone()) post('kahf.done') };
 
   /* --- wake lock, copy, share --- */
@@ -38,7 +43,6 @@
       IST.days = st.days || {}; IST.total = st.total || 0; ls.set('ist', IST);
       if (route()==='istighfar' || route()==='home') render(true); else istPaint('init');
     },
-    setTimes(t){ if (!t) return; Object.assign(T, t); ENV.times = t; for (const c of ['morning','evening']) if (counts[c].key !== cycleKey(c)){ counts[c] = {key: cycleKey(c), c:{}}; saveC() } if (!sheetOpen) render(true); else resheet() },
     setEnv(e){ Object.assign(ENV, e||{}); if (sheetOpen) resheet(); if (route()==='istighfar') render(true) },
     go(r){ if (!r) return; if (r==='settings'){ if (typeof endSplash==='function') endSplash(); setTimeout(openSheet, 400); return } location.hash = r },
     restore(data){
@@ -55,32 +59,47 @@
     toast(m){ toast(m) }
   };
 
-  /* --- settings: real reminders, prayer times, backup --- */
-  const fmt = h => { if (h==null) return '—'; let H = Math.floor(h), M = Math.round((h-H)*60); if (M===60){ H++; M=0 } const ap = H<12 ? 'ص' : 'م'; const h12 = ((H+11)%12)+1; return AR(h12)+':'+AR(String(M).padStart(2,'0'))+' '+ap };
+  /* --- settings: reminders at chosen times, backup --- */
+  const fmtT = v => { const [H,M] = v.split(':').map(Number); return AR(((H+11)%12)+1)+':'+AR(String(M).padStart(2,'0'))+' '+(H<12?'ص':'م') };
+  const remRow = (k, title, sub) => `<div class="row"><div class="lab"><b>${title}</b><small>${sub}</small></div><div class="rem-r"><label class="tchip"><span class="digits">${fmtT(S.remT[k])}</span><input type="time" data-remt="${k}" value="${S.remT[k]}"></label>${sw('rem.'+k, !!S.rem[k])}</div></div>`;
+  const cut = (h, start) => { const i = h.indexOf(start); if (i<0) return h; let j = h.indexOf('<div class="grp">', i+10); const k = h.indexOf('<div class="about">', i); if (j<0 || (k>=0 && k<j)) j = k; return j>i ? h.slice(0,i) + h.slice(j) : h };
   const _sheetHTML = sheetHTML;
   sheetHTML = function(){
     let h = _sheetHTML();
-    const pi = h.indexOf('<div class="grp"><h4>معاينة التوقيت'); if (pi>=0){ let pj = h.indexOf('<div class="grp">', pi+10); const pk = h.indexOf('<div class="about">', pi); if (pj<0 || (pk>=0 && pk<pj)) pj = pk; if (pj>pi) h = h.slice(0,pi) + h.slice(pj) }
-    h = h.replace('<p class="hint">التذكيرات للعرض فقط في هذا النموذج.</p>', ENV.notif==='denied' ? '<p class="hint">الإشعارات متوقفة لـ«وِرد». فعّلها من إعدادات الآيفون ← الإشعارات ← وِرد.</p>' : '<p class="hint">تُحسب أوقات التذكير من مواقيت الصلاة في موقعك.</p>');
-    const t = ENV.times;
-    const times = t ? [['الفجر',t.fajr],['الشروق',t.sunrise],['الظهر',t.dhuhr],['العصر',t.asr],['المغرب',t.maghrib],['العشاء',t.isha]] : [];
+    h = cut(h, '<div class="grp"><h4>معاينة التوقيت');
+    h = cut(h, '<div class="grp"><h4>التذكيرات</h4>');
+    h = h.replace(/<div class="row"><div class="lab"><b>تذكير بعد الصلوات<\/b>.*?<\/button><\/div>/s, '');
+    h = h.replace(/<div class="row"><div class="lab"><b>تذكير الأسحار<\/b>.*?<\/button><\/div>/s, '');
+    h = h.replace('«تلقائي» يتبع الصلاة: نهاري من الفجر، وليلي من المغرب.', '«تلقائي»: نهاري في النهار، وليلي بعد المغرب.');
+    const note = ENV.notif==='denied' ? '<p class="hint">الإشعارات متوقفة لـ«وِرد». فعّلها من إعدادات الآيفون ← الإشعارات ← وِرد.</p>' : '<p class="hint">اضغط على الوقت لتغييره.</p>';
     const extra = `
-  <div class="grp"><h4>مواقيت الصلاة</h4><div class="box glass">
-    <div class="row"><div class="lab"><b>${ENV.place || 'الموقع'}</b><small>${ENV.locNote || 'تُحسب المواقيت من موقعك بدون إنترنت'}</small></div><button class="chip" data-nat="loc">تحديث الموقع</button></div>
-    ${times.length ? `<div class="ptimes">${times.map(([n,v])=>`<div><small>${n}</small><b class="digits">${fmt(v)}</b></div>`).join('')}</div>` : ''}
-  </div></div>
+  <div class="grp"><h4>التذكيرات</h4><div class="box glass">
+    ${remRow('morning','أذكار الصباح','كل يوم')}
+    ${remRow('evening','أذكار المساء','كل يوم')}
+    ${remRow('kahf','سورة الكهف','يوم الجمعة، وتذكير ليلة الجمعة')}
+    ${remRow('mulk','سورة الملك','قبل النوم')}
+    ${remRow('sahar','وقت الأسحار','تذكير بالاستغفار آخر الليل')}
+  </div>${note}</div>
   <div class="grp"><h4>النسخ الاحتياطي</h4><div class="box glass">
     <div class="row"><div class="lab"><b>حفظ نسخة</b><small>العدّات والعلامات والصيغ والإعدادات في ملف واحد</small></div><button class="chip" data-nat="export">حفظ</button></div>
     <div class="row"><div class="lab"><b>استعادة نسخة</b><small>من ملف حفظته سابقاً، يستبدل البيانات الحالية</small></div><button class="chip" data-nat="import">استعادة</button></div>
   </div></div>
-  ${ENV.group ? '' : '<div class="grp"><div class="box glass"><div class="row"><div class="lab"><b>الويدجت لا تقرأ العدّاد</b><small>شهادة التوقيع لا تدعم «مجموعات التطبيقات»، لذلك تبقى أرقام الويدجت صفراً. وقّع التطبيق بشهادة تدعمها.</small></div></div></div></div>'}
   `;
     return h.replace('<div class="about">', extra + '<div class="about">');
   };
+  sheet.addEventListener('change', e => {
+    const t = e.target.closest('[data-remt]'); if (!t || !t.value) return;
+    S.remT[t.dataset.remt] = t.value; S.rem[t.dataset.remt] = true; saveS(); resheet(); vib(8);
+  });
+  let aboutTaps = 0, aboutT;
+  sheet.addEventListener('click', e => {
+    if (!e.target.closest('.about')) return;
+    aboutTaps++; clearTimeout(aboutT); aboutT = setTimeout(()=>aboutTaps=0, 1500);
+    if (aboutTaps >= 5){ aboutTaps = 0; toast('مشاركة البيانات مع الويدجت: ' + ({group:'مجموعة التطبيقات', keychain:'سلسلة المفاتيح', local:'غير متاحة'}[ENV.store] || '—')) }
+  });
   sheet.addEventListener('click', e => {
     const b = e.target.closest('[data-nat]'); if (!b) return;
     const a = b.dataset.nat;
-    if (a==='loc'){ post('loc.refresh'); toast('جارٍ تحديد الموقع…') }
     if (a==='export'){ const data = {}; Object.keys(localStorage).filter(k=>k.startsWith('wird3:')).forEach(k=>data[k]=localStorage.getItem(k)); post('backup.export', {json: JSON.stringify({app:'wird', v:1, at:new Date().toISOString(), data})}) }
     if (a==='import') post('backup.import');
   });
@@ -117,6 +136,7 @@
 
   /* --- start --- */
   document.documentElement.classList.add('native');
-  sendMeta(); post('settings', {rem: S.rem}); post('theme', {dark: resolvedDark()});
+  sendMeta(); post('settings', remPayload()); lastTheme = ''; applyTheme();
+  post('diag', {m: `vp ${innerWidth}x${innerHeight} doc ${document.documentElement.clientHeight} vv ${visualViewport ? Math.round(visualViewport.height) : 0} scr ${screen.height}`});
   post('ready');
 })();

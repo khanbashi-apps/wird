@@ -43,6 +43,7 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stro
 .bg-pat{position:fixed;inset:0;z-index:-2;background:var(--orn);opacity:.07;-webkit-mask:var(--pat-star) repeat;mask:var(--pat-star) repeat;-webkit-mask-size:64px;mask-size:64px;
   -webkit-mask-image:var(--pat-star),linear-gradient(#000,transparent 75%);mask-image:var(--pat-star),linear-gradient(#000,transparent 75%);-webkit-mask-composite:source-in;mask-composite:intersect}
 .bg-stars{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.bg,.bg-pat,.bg-stars{top:calc(-1*env(safe-area-inset-top,0px));bottom:calc(-1*env(safe-area-inset-bottom,0px) - 1px)}
 .bg-star{position:absolute;color:var(--orn);opacity:.13;pointer-events:none;animation:turn 160s linear infinite}
 .bg-star.a{width:min(110vw,520px);top:-14%;inset-inline-start:-30%}
 .bg-star.b{width:min(70vw,320px);bottom:-8%;inset-inline-end:-22%;opacity:.08;animation-direction:reverse}
@@ -158,8 +159,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .prog-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-bottom:6px}
 .prog-row b{color:var(--fg);font-weight:600}
 .meter.full i{background:var(--done)}
-.seg{display:flex;border-radius:14px;overflow:hidden;flex:none}
-.seg button{min-width:40px;height:42px;font-weight:600;padding:0 8px;position:relative}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-radius:14px;overflow:hidden;flex:none}
+.seg button{min-width:58px;height:42px;font-weight:600;padding:0 10px;position:relative;white-space:nowrap}
 .seg button+button{border-inline-start:1px solid var(--line)}
 .seg button[aria-pressed="true"]{background:var(--acc);color:var(--acc-fg)}
 .list{display:flex;flex-direction:column;gap:16px;padding-top:12px}
@@ -395,8 +396,9 @@ body.fixed .week-grid{gap:3px 4px}
 .size-prev{font-family:var(--f-disp);font-size:var(--d-size);padding:4px 14px 12px;line-height:1.8;position:relative}
 input[type=range]{width:100%;accent-color:var(--orn)}
 
-.view{animation:in .3s ease-out}
-@keyframes in{from{opacity:.3;transform:translateY(8px)}to{opacity:1;transform:none}}
+.view{animation:in .28s ease-out}
+body.noanim .view{animation:none}
+@keyframes in{from{transform:translateY(6px)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 /* istighfar */
 .ist-tile{grid-column:1 / -1;flex-direction:row;align-items:center;gap:12px;min-height:0;padding:12px 14px 20px;position:relative}
@@ -1092,7 +1094,7 @@ function sheetHTML(){
   </div><p class="hint">التذكيرات للعرض فقط في هذا النموذج.</p></div>
   <div class="grp"><h4>معاينة التوقيت (للنموذج فقط)</h4><div class="box glass">
     <div class="chips">${pv.map(([k,l])=>`<button class="chip" data-preview="${k}" aria-pressed="${previewMode===k}">${l}</button>`).join('')}</div>
-  </div></div>  <div class="about"><div class="brand-ic about-ic"><svg viewBox="0 0 200 200" aria-hidden="true">${MARK}</svg></div><b>وِرد</b><small>الإصدار ١٫٠٫٠</small><small>تطوير أحمد الخنبشي</small></div>
+  </div></div>  <div class="about"><div class="brand-ic about-ic"><svg viewBox="0 0 200 200" aria-hidden="true">${MARK}</svg></div><b>وِرد</b><small>تطوير أحمد الخنبشي</small></div>
 </div>`;
 }
 /* settings sheet: spring physics, drag to dismiss */
@@ -1189,6 +1191,7 @@ function render(keep){
   const r = route();
   if (typeof stopAuto==='function') stopAuto(); BK = null;
   document.body.classList.toggle('fixed', !DATA[r] && r!=='istighfar' && (!SURAH[r] || S.reader==='book'));
+  document.body.classList.toggle('noanim', !!keep);
   app.innerHTML = DATA[r] ? viewDhikr(r) : SURAH[r] ? viewSurah(r) : r==='istighfar' ? viewIst() : viewHome();
   if (!keep) scrollTo(0,0);
   if (SURAH[r]) (S.reader==='book' ? setupBook(r) : setupVertical(r));

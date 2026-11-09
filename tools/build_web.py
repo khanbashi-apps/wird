@@ -36,10 +36,9 @@ body{margin:0;font:14px/1.5 -apple-system,system-ui,sans-serif;-webkit-user-sele
 textarea,input,.dtext,.mushaf,.ist-text{-webkit-user-select:text;user-select:text}
 img{max-width:100%}
 [hidden]{display:none!important}
-.ptimes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:4px 14px 14px;position:relative}
-.ptimes div{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-radius:12px;border:1px solid var(--line)}
-.ptimes small{font-size:11.5px;color:var(--muted)}
-.ptimes b{font-size:14px;font-weight:600}
+.rem-r{display:flex;align-items:center;gap:10px;flex:none}
+.tchip{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:86px;height:36px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:var(--glass);font-weight:600;font-size:14px}
+.tchip input{position:absolute;inset:0;width:100%;height:100%;opacity:0;-webkit-appearance:none;appearance:none;border:0;background:none;font-size:16px}
 .g-ol{margin:0;padding-inline-start:20px;display:flex;flex-direction:column;gap:8px;line-height:1.7}
 </style>
 </head>

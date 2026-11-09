@@ -1,14 +1,32 @@
 import Foundation
 import UserNotifications
 
-/// Local reminders built from the day's prayer times (next 6 days, within iOS's 64 limit).
+/// Local reminders at the times chosen in settings (next 7 days, within iOS's 64 limit).
 enum Reminders {
     private static let flagsKey = "rem.flags"
     static var status = "unknown"
 
     static var flags: [String: Bool] {
         UserDefaults.standard.dictionary(forKey: flagsKey) as? [String: Bool]
-            ?? ["morning": true, "evening": true, "kahf": true, "mulk": false, "prayer": false, "sahar": false]
+            ?? ["morning": true, "evening": true, "kahf": true, "mulk": false, "sahar": false]
+    }
+
+    private static let timesKey = "rem.times"
+    static let defaultTimes = ["morning": "05:30", "evening": "16:15", "kahf": "09:00", "mulk": "21:30", "sahar": "04:00"]
+    static var times: [String: String] {
+        var t = defaultTimes
+        for (k, v) in (UserDefaults.standard.dictionary(forKey: timesKey) as? [String: String] ?? [:]) { t[k] = v }
+        return t
+    }
+    static func saveTimes(_ t: [String: String]) {
+        var cur = times
+        for (k, v) in t where v.contains(":") { cur[k] = v }
+        UserDefaults.standard.set(cur, forKey: timesKey)
+    }
+    /// "HH:mm" → (hour, minute)
+    static func hm(_ key: String) -> (Int, Int) {
+        let parts = (times[key] ?? defaultTimes[key] ?? "06:00").split(separator: ":").compactMap { Int($0) }
+        return (parts.first ?? 6, parts.count > 1 ? parts[1] : 0)
     }
     static func saveFlags(_ f: [String: Bool]) {
         var cur = flags
@@ -44,7 +62,6 @@ enum Reminders {
             guard s.authorizationStatus == .authorized || s.authorizationStatus == .provisional || s.authorizationStatus == .ephemeral else { done?(); return }
             center.removeAllPendingNotificationRequests()
             let f = flags
-            let loc = LocationService.shared.coordinate
             let now = Date()
             let cal = Calendar(identifier: .gregorian)
             var reqs: [UNNotificationRequest] = []
@@ -59,28 +76,24 @@ enum Reminders {
                 reqs.append(UNNotificationRequest(identifier: id, content: c, trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)))
             }
 
-            for dayOffset in 0..<6 {
-                guard let day = cal.date(byAdding: .day, value: dayOffset, to: now),
-                      let t = PrayerTimes.compute(date: day, lat: loc.latitude, lng: loc.longitude) else { continue }
+            func at(_ day: Date, _ key: String) -> Date {
+                let (h, m) = hm(key)
+                return cal.date(bySettingHour: h, minute: m, second: 0, of: day) ?? day
+            }
+            for dayOffset in 0..<7 {
+                guard let day = cal.date(byAdding: .day, value: dayOffset, to: now) else { continue }
                 let key = IstStore.dayKey(day)
                 let weekday = cal.component(.weekday, from: day) // 5 = Thursday, 6 = Friday
-                if f["morning"] == true { add("morning.\(key)", t.fajr.addingTimeInterval(15 * 60), "أذكار الصباح", "حان وقت أذكار الصباح، ابدأ وردك.", "morning") }
-                if f["evening"] == true { add("evening.\(key)", t.asr.addingTimeInterval(15 * 60), "أذكار المساء", "حان وقت أذكار المساء.", "evening") }
-                if f["mulk"] == true { add("mulk.\(key)", t.isha.addingTimeInterval(2 * 3600), "سورة الملك", "ورد ما قبل النوم: سورة الملك، المنجية.", "mulk") }
+                if f["morning"] == true { add("morning.\(key)", at(day, "morning"), "أذكار الصباح", "حان وقت أذكار الصباح، ابدأ وردك.", "morning") }
+                if f["evening"] == true { add("evening.\(key)", at(day, "evening"), "أذكار المساء", "حان وقت أذكار المساء.", "evening") }
+                if f["mulk"] == true { add("mulk.\(key)", at(day, "mulk"), "سورة الملك", "ورد ما قبل النوم: سورة الملك، المنجية.", "mulk") }
                 if f["kahf"] == true {
-                    if weekday == 5 { add("kahf.thu.\(key)", t.maghrib.addingTimeInterval(10 * 60), "ليلة الجمعة", "اغتنم قراءة سورة الكهف.", "kahf") }
-                    if weekday == 6 { add("kahf.fri.\(key)", t.dhuhr.addingTimeInterval(60 * 60), "سورة الكهف", "لم يبقَ من يوم الجمعة إلا قليل، أكمل سورة الكهف.", "kahf") }
-                }
-                if f["prayer"] == true {
-                    for (i, p) in t.all.enumerated() {
-                        add("prayer.\(i).\(key)", p.date.addingTimeInterval(10 * 60), "أستغفر الله", "بعد صلاة \(p.name): أستغفر الله، أستغفر الله، أستغفر الله.", "istighfar")
+                    if weekday == 5, let thu = cal.date(bySettingHour: 19, minute: 30, second: 0, of: day) {
+                        add("kahf.thu.\(key)", thu, "ليلة الجمعة", "اغتنم قراءة سورة الكهف.", "kahf")
                     }
+                    if weekday == 6 { add("kahf.fri.\(key)", at(day, "kahf"), "سورة الكهف", "يوم الجمعة: نورٌ ما بين الجمعتين، اقرأ سورة الكهف.", "kahf") }
                 }
-                if f["sahar"] == true,
-                   let next = PrayerTimes.compute(date: cal.date(byAdding: .day, value: 1, to: day) ?? day, lat: loc.latitude, lng: loc.longitude) {
-                    let night = next.fajr.timeIntervalSince(t.maghrib)
-                    add("sahar.\(key)", next.fajr.addingTimeInterval(-night / 3), "وقت الأسحار", "﴿وَبِالْأَسْحَارِ هُمْ يَسْتَغْفِرُونَ﴾", "istighfar")
-                }
+                if f["sahar"] == true { add("sahar.\(key)", at(day, "sahar"), "وقت الأسحار", "﴿وَبِالْأَسْحَارِ هُمْ يَسْتَغْفِرُونَ﴾", "istighfar") }
             }
             reqs.sort { a, b in
                 let da = (a.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() ?? .distantFuture

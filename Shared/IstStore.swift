@@ -1,15 +1,132 @@
 import Foundation
+import Security
 import SwiftUI
 
-/// Shared storage between the app, its widgets and its intents (App Group).
+/// Shared storage between the app, its widgets and its intents.
+/// Signing tools often rename the App Group (e.g. add the team ID), so the real group is read
+/// from the installed provisioning profile. If no group works, a shared Keychain item is used.
 enum WirdShared {
-    static let groupID = "group.om.alkhanbashi.wird"
-    static var groupAvailable: Bool {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) != nil
+    static let baseGroup = "group.om.alkhanbashi.wird"
+
+    /// "group" | "keychain" | "local"
+    static var mode: String { groupID != nil ? "group" : (Keychain.available ? "keychain" : "local") }
+    static var groupAvailable: Bool { mode != "local" }
+
+    static let groupID: String? = {
+        var candidates: [String] = []
+        candidates += profileGroups()
+        candidates.append(baseGroup)
+        var app = Bundle.main.bundleIdentifier ?? ""
+        if Bundle.main.bundleURL.pathExtension == "appex" {
+            // om.alkhanbashi.wird.widgets(.XXXX) → om.alkhanbashi.wird(.XXXX)
+            app = app.replacingOccurrences(of: ".widgets", with: "")
+        }
+        if !app.isEmpty { candidates += ["group." + app, "group.\(app).shared"] }
+        var seen = Set<String>()
+        for g in candidates where !g.isEmpty && seen.insert(g).inserted {
+            if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: g) != nil { return g }
+        }
+        return nil
+    }()
+
+    /// App groups listed in embedded.mobileprovision (the profile the signing tool used).
+    static func profileGroups() -> [String] {
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url),
+              let start = data.range(of: Data("<?xml".utf8)),
+              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex) else { return [] }
+        let xml = data.subdata(in: start.lowerBound..<end.upperBound)
+        guard let plist = try? PropertyListSerialization.propertyList(from: xml, format: nil) as? [String: Any],
+              let ent = plist["Entitlements"] as? [String: Any] else { return [] }
+        let groups = (ent["com.apple.security.application-groups"] as? [String]) ?? []
+        // prefer groups that look like ours
+        return groups.filter { $0.contains("wird") } + groups.filter { !$0.contains("wird") && !$0.contains("*") }
     }
+
     static var defaults: UserDefaults {
-        if groupAvailable, let d = UserDefaults(suiteName: groupID) { return d }
+        if let g = groupID, let d = UserDefaults(suiteName: g) { return d }
         return .standard
+    }
+
+    static func data(forKey key: String) -> Data? {
+        if groupID != nil { return defaults.data(forKey: key) }
+        if Keychain.available { return Keychain.read(key) }
+        return UserDefaults.standard.data(forKey: key)
+    }
+
+    static func set(_ data: Data, forKey key: String) {
+        if groupID != nil { defaults.set(data, forKey: key); return }
+        if Keychain.available { Keychain.write(key, data); return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+}
+
+/// Keychain items in a team-wide access group are readable by the app and its widget extension
+/// when the signing profile allows the team's keychain groups (most signing tools do).
+enum Keychain {
+    static let service = "om.alkhanbashi.wird.shared"
+
+    static let accessGroup: String? = {
+        // learn the team prefix from an item in the default group
+        let probe: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                    kSecAttrService as String: service + ".probe",
+                                    kSecAttrAccount as String: "probe"]
+        var q = probe
+        q[kSecReturnAttributes as String] = true
+        var out: CFTypeRef?
+        var st = SecItemCopyMatching(q as CFDictionary, &out)
+        if st == errSecItemNotFound {
+            var add = probe
+            add[kSecValueData as String] = Data([1])
+            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            add[kSecReturnAttributes as String] = true
+            st = SecItemAdd(add as CFDictionary, &out)
+        }
+        guard st == errSecSuccess, let attrs = out as? [String: Any],
+              let g = attrs[kSecAttrAccessGroup as String] as? String,
+              let dot = g.firstIndex(of: ".") else { return nil }
+        let team = String(g[..<dot])
+        return team + ".om.alkhanbashi.wird.shared"
+    }()
+
+    static let available: Bool = {
+        guard let g = accessGroup else { return false }
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                kSecAttrService as String: service,
+                                kSecAttrAccount as String: "check",
+                                kSecAttrAccessGroup as String: g]
+        SecItemDelete(q as CFDictionary)
+        var add = q
+        add[kSecValueData as String] = Data([1])
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
+    }()
+
+    private static func base(_ key: String) -> [String: Any] {
+        var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                kSecAttrService as String: service,
+                                kSecAttrAccount as String: key]
+        if let g = accessGroup { q[kSecAttrAccessGroup as String] = g }
+        return q
+    }
+
+    static func read(_ key: String) -> Data? {
+        var q = base(key)
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: CFTypeRef?
+        return SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess ? out as? Data : nil
+    }
+
+    static func write(_ key: String, _ data: Data) {
+        let q = base(key)
+        let st = SecItemUpdate(q as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if st == errSecItemNotFound {
+            var add = q
+            add[kSecValueData as String] = data
+            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            SecItemAdd(add as CFDictionary, nil)
+        }
     }
 }
 
@@ -40,13 +157,13 @@ enum IstStore {
     private static let lock = NSLock()
 
     static func load() -> IstState {
-        guard let data = WirdShared.defaults.data(forKey: key),
+        guard let data = WirdShared.data(forKey: key),
               let s = try? JSONDecoder().decode(IstState.self, from: data) else { return IstState() }
         return s
     }
 
     static func save(_ s: IstState) {
-        if let data = try? JSONEncoder().encode(s) { WirdShared.defaults.set(data, forKey: key) }
+        if let data = try? JSONEncoder().encode(s) { WirdShared.set(data, forKey: key) }
     }
 
     static func dayKey(_ d: Date = Date()) -> String {

@@ -54,15 +54,13 @@ final class WebViewController: UIViewController, WKScriptMessageHandler, WKNavig
         pip.attach(to: view)
         pip.onAdd = { [weak self] in self?.addFromOutside(1) }
         pip.onStateChange = { [weak self] _ in self?.sendEnv() }
-        if let r = ProcessInfo.processInfo.environment["WIRD_ROUTE"], !r.isEmpty { pendingRoute = r }
+        if let r = ProcessInfo.processInfo.environment["WIRD_ROUTE"], !r.isEmpty {
+            if r == "widgets" { DispatchQueue.main.async { WidgetGallery.run() } } else { pendingRoute = r }
+        }
         webView.load(URLRequest(url: URL(string: "\(WebSchemeHandler.scheme)://app/index.html")!))
         let nc = NotificationCenter.default
         nc.addObserver(self, selector: #selector(foreground), name: UIApplication.willEnterForegroundNotification, object: nil)
         nc.addObserver(self, selector: #selector(background), name: UIApplication.didEnterBackgroundNotification, object: nil)
-        LocationService.shared.onUpdate = { [weak self] in
-            self?.sendTimes()
-            Reminders.reschedule()
-        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -73,7 +71,6 @@ final class WebViewController: UIViewController, WKScriptMessageHandler, WKNavig
     // MARK: lifecycle
     @objc private func foreground() {
         syncIst()
-        sendTimes()
         Reminders.reschedule()
         LiveCounter.shared.refresh()
         sendEnv()
@@ -105,21 +102,13 @@ final class WebViewController: UIViewController, WKScriptMessageHandler, WKNavig
         pip.update(state: s)
     }
 
-    private func sendTimes() {
-        guard let t = PrayerTimes.today() else { return }
-        js("wirdNative.setTimes(\(jsonString(t.asHours())))")
-        sendEnv()
-    }
-
     private func sendEnv() {
         let env: [String: Any] = [
-            "group": WirdShared.groupAvailable,
+            "store": WirdShared.mode,
             "live": LiveCounter.shared.enabled,
             "liveOn": LiveCounter.shared.isRunning,
             "pip": pip.isSupported,
             "pipOn": pip.isActive,
-            "place": LocationService.shared.placeName,
-            "locNote": LocationService.shared.note,
             "notif": Reminders.status
         ]
         js("wirdNative.setEnv(\(jsonString(env)))")
@@ -161,9 +150,8 @@ final class WebViewController: UIViewController, WKScriptMessageHandler, WKNavig
         switch t {
         case "ready":
             ready = true
-            syncIst(); sendTimes(); sendEnv()
-            LocationService.shared.start()
-            Reminders.requestIfNeeded()
+            syncIst(); sendEnv()
+            if ProcessInfo.processInfo.environment["WIRD_ROUTE"] == nil { Reminders.requestIfNeeded() }
             if let r = pendingRoute { pendingRoute = nil; DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { self.open(route: r) } }
         case "jserr":
             logJSError(body["m"] as? String ?? "")
@@ -194,14 +182,28 @@ final class WebViewController: UIViewController, WKScriptMessageHandler, WKNavig
         case "settings":
             if let rem = body["rem"] as? [String: Any] {
                 Reminders.saveFlags(rem.compactMapValues { $0 as? Bool })
-                Reminders.reschedule()
             }
+            if let times = body["times"] as? [String: Any] {
+                Reminders.saveTimes(times.compactMapValues { $0 as? String })
+            }
+            Reminders.reschedule()
         case "kahf.done":
             Reminders.cancelFridayKahf()
         case "theme":
-            darkUI = (body["dark"] as? Bool) ?? false
-            setNeedsStatusBarAppearanceUpdate()
-            view.window?.overrideUserInterfaceStyle = darkUI ? .dark : .light
+            let dark = (body["dark"] as? Bool) ?? false
+            if let hex = body["bg"] as? String {
+                let c = UIColor(hex: hex)
+                if webView.backgroundColor != c {
+                    webView.backgroundColor = c
+                    webView.scrollView.backgroundColor = c
+                    view.window?.backgroundColor = c
+                }
+            }
+            if dark != darkUI || view.window?.overrideUserInterfaceStyle == .unspecified {
+                darkUI = dark
+                setNeedsStatusBarAppearanceUpdate()
+                view.window?.overrideUserInterfaceStyle = dark ? .dark : .light
+            }
         case "wake":
             UIApplication.shared.isIdleTimerDisabled = (body["on"] as? Bool) ?? false
         case "copy":
@@ -213,8 +215,11 @@ final class WebViewController: UIViewController, WKScriptMessageHandler, WKNavig
             exportBackup(json: body["json"] as? String ?? "{}")
         case "backup.import":
             importBackup()
-        case "loc.refresh":
-            LocationService.shared.start(force: true)
+        case "diag":
+            NSLog("[wird diag] %@ store=%@", body["m"] as? String ?? "", WirdShared.mode)
+            #if DEBUG
+            logJSError("info: " + (body["m"] as? String ?? "") + " store=" + WirdShared.mode)
+            #endif
         case "pip.start":
             pip.start(state: IstStore.load())
         case "pip.stop":
