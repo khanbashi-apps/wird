@@ -285,6 +285,24 @@ body.compact .med .n b{font-size:24px}
 .book.zoomed{touch-action:pan-x pan-y}
 .pg{position:absolute;inset:0;border-radius:16px 4px 4px 16px;color:var(--paper-fg);overflow:hidden;background:linear-gradient(to left,rgba(0,0,0,.09),rgba(0,0,0,0) 6%),var(--paper)}
 .pg-in{position:absolute;inset:42px 26px 42px;overflow:visible}
+.bookv .pg-in{inset:22px 20px 22px}
+.bookv .pg-frame{inset:6px 4px 6px}
+.bookv .pg-head,.bookv .pg-num{display:none}
+.bookv .book-area{gap:8px}
+.bk-foot{position:relative;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;min-height:60px;padding:8px 18px 10px;border-radius:22px;flex:none}
+.bk-side{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;min-width:0}
+.bk-side.end{align-items:flex-end}
+.bk-side b{font-family:var(--f-disp);font-size:19px;color:var(--orn);white-space:nowrap}
+.bk-side small{font-size:12px;color:var(--muted);white-space:nowrap}
+.bk-mid{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--orn) 16%,transparent);color:var(--orn)}
+.bk-mid[aria-expanded="true"]{background:var(--orn);color:var(--acc-fg)}
+.bk-meter{position:absolute;left:18px;right:18px;bottom:5px;height:2px;border-radius:2px;background:var(--line);overflow:hidden}
+.bk-meter i{display:block;height:100%;width:0;background:var(--orn);transition:width .3s}
+.bk-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);z-index:30;background:color-mix(in srgb,var(--bg) 94%,transparent)!important;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 14px 34px -14px var(--sh);display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:20px;width:max-content;max-width:calc(100vw - 32px)}
+.bk-pop-row{display:flex;gap:8px;align-items:center}
+.bk-pop .tbtn{height:40px}
+.bk-pop-info{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--muted);padding-inline:4px;flex-wrap:wrap}
+.bk-pop-info .kahf-badge{margin:0;padding:1px 8px;font-size:11px}
 .pg-in.zoomed{overflow:auto;-webkit-overflow-scrolling:touch}
 .pg-num{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--f-disp);font-size:13px;color:var(--orn)}
 .mpage{direction:rtl;color:var(--paper-fg);display:flex;flex-direction:column}
@@ -1302,6 +1320,7 @@ app.addEventListener('click', e => {
     if (a==='qPlus'||a==='qMinus'){
       if (book){ const nz = Math.max(1, Math.min(2, bookZoom + (a==='qPlus'?0.25:-0.25))); if (nz===bookZoom){ toast(nz===1?'هذا حجم المصحف الأصلي':'هذا أكبر حجم'); return } const an = pageAnchor(); bookZoom = nz; ls.set('bookZoom', bookZoom); setupBook(cat, an); toast(bookZoom>1?`حجم الخط ${AR(Math.round(bookZoom*100))}٪`:'صفحات المصحف الأصلية'); return }
       S.qSize = Math.max(18, Math.min(40, S.qSize + (a==='qPlus'?2:-2))); saveS(); applyTheme(); return }
+    if (a==='bkTools'){ const pop = $('bkPop'); if (pop){ pop.hidden = !pop.hidden; t.closest('[data-act]').setAttribute('aria-expanded', !pop.hidden) } return }
     if (a==='pgNext'){ flip('next'); return }
     if (a==='pgPrev'){ flip('prev'); return }
     if (a==='goMark'){
@@ -1379,19 +1398,19 @@ const chevL = svg('<path d="M15 6l-6 6 6 6"/>');
 function viewSurah(key){
   const s = SURAH[key], m = marks[key]||0, book = S.reader==='book';
   const badge = key==='kahf' ? `<span class="kahf-badge" id="kahfBadge" ${kahfDone()?'':'hidden'}>✓ قرأتها هذه الجمعة</span>` : '';
-  return `<div class="view ${book?'fit':''}">
+  return `<div class="view ${book?'fit bookv':''}">
   <div class="bar"><div class="bar-in wrap">
     <button class="ibtn glass" data-go="home" aria-label="رجوع">${I.back}</button>
     <h1>${s.name}</h1>
     <button class="ibtn glass" data-act="mode" aria-label="تبديل الوضع">${modeIcon()}</button>
   </div>
-  <div class="tools wrap">
+  ${book?'':`<div class="tools wrap">
     <div class="seg glass" role="group" aria-label="${book?'تكبير الصفحة':'حجم الخط'}"><button data-act="qPlus" aria-label="تكبير">+أ</button><button data-act="qMinus" aria-label="تصغير">−أ</button></div>
     <button class="tbtn glass" data-act="goMark" id="markBtn">${I.mark} ${m?'العلامة '+AR(m):'العلامة'}</button>
     ${book?'':`<button class="tbtn glass" data-act="auto" id="autoBtn" aria-pressed="false">${I.down} تمرير تلقائي</button>`}
     <button class="tbtn glass" data-act="wake" id="wake" aria-label="إبقاء الشاشة مضاءة" aria-pressed="${!!wakeLock}">${I.bulb} ${book?'':'إبقاء الشاشة'}</button>
     ${book?'':`<div class="seg glass" id="speeds" role="group" aria-label="سرعة التمرير" hidden>${[[0.5,'بطيء'],[1,'متوسط'],[2,'سريع']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${autoSpeed===v}">${l}</button>`).join('')}</div>`}
-  </div>
+  </div>`}
   ${book?'':`<div class="vinfo wrap">${badge}<span class="vtime" id="vTime">${timeLeft(surahLeftWords(key))}</span></div>`}
   </div>
   ${book ? `<div class="book-area wrap">
@@ -1400,10 +1419,19 @@ function viewSurah(key){
         <div class="pg paper front" id="pgFront"></div>
         <div class="flap-wrap" id="flapWrap" hidden><div class="flap" id="flap"><div class="fshade" id="fshade"></div></div></div>
       </div>
-      <div class="book-foot">
-        <button class="ibtn glass" data-act="pgPrev" aria-label="الصفحة السابقة">${I.back}</button>
-        <div class="bf-mid"><div class="bf-row"><span class="digits" id="pgNo"></span>${badge}<span id="pgTime"></span></div><div class="meter"><i id="pgBar"></i></div></div>
-        <button class="ibtn glass" data-act="pgNext" aria-label="الصفحة التالية">${chevL}</button>
+      <div class="bk-foot glass">
+        <div class="bk-side"><b class="digits" id="pgNo"></b><small>الصفحة</small></div>
+        <button class="bk-mid" data-act="bkTools" aria-label="أدوات القراءة" aria-expanded="false">${I.gear}</button>
+        <div class="bk-side end"><b id="pgSura"></b><small id="pgJuz"></small></div>
+        <span class="bk-meter"><i id="pgBar"></i></span>
+        <div class="bk-pop glass" id="bkPop" hidden>
+          <div class="bk-pop-row">
+            <div class="seg" role="group" aria-label="تكبير الصفحة"><button data-act="qPlus" aria-label="تكبير">+أ</button><button data-act="qMinus" aria-label="تصغير">−أ</button></div>
+            <button class="tbtn" data-act="goMark" id="markBtn">${I.mark} ${m?'العلامة '+AR(m):'العلامة'}</button>
+            <button class="tbtn" data-act="wake" id="wake" aria-label="إبقاء الشاشة مضاءة" aria-pressed="${!!wakeLock}">${I.bulb}</button>
+          </div>
+          <div class="bk-pop-info"><span id="pgOf" class="digits"></span><span id="pgTime"></span>${badge}</div>
+        </div>
       </div>
     </div>`
   : `<div class="wrap"><div class="page glass">${headHTML(s)}<p class="mushaf">${s.ayat.map((_,i)=>ayahHTML(key,i)).join('')}</p><div id="endMark"></div></div>
@@ -1580,10 +1608,13 @@ function showPage(){
   if (!BK) return;
   const {key, pages, i} = BK;
   BK.front.style.clipPath = ''; BK.flapWrap.hidden = true; BK.under.hidden = true; BK.mode = null;
-  $('pgNo').textContent = `صفحة ${AR(i+1)} من ${AR(pages.length)}`;
+  const sp = pages[i].f ? pages[i].src : pages[i].p, mt = MUSHAF.meta[sp] || {};
+  $('pgNo').textContent = AR(sp);
+  $('pgSura').textContent = mt.s || SURAH[key].name.replace('سورة ','');
+  $('pgJuz').textContent = 'الجزء ' + AR(mt.j || 0);
+  $('pgOf').textContent = `صفحة ${AR(i+1)} من ${AR(pages.length)}`;
   $('pgBar').style.width = ((i+1)/pages.length*100)+'%';
-  $('pgTime').textContent = timeLeft(wordsFrom(key, i));
-  const sp = pages[i].f ? pages[i].src : pages[i].p; bookIdx[key] = SURAH[key].pages.indexOf(sp); ls.set('bookPage', bookIdx); pageT0 = performance.now();
+  $('pgTime').textContent = timeLeft(wordsFrom(key, i)); bookIdx[key] = SURAH[key].pages.indexOf(sp); ls.set('bookPage', bookIdx); pageT0 = performance.now();
   if (!pages[i].f){ if (i+1<pages.length) pageFontsReady(pages[i+1].p); if (i>0) pageFontsReady(pages[i-1].p) }
   if (key==='kahf' && i===pages.length-1) markKahfRead();
 }
@@ -1714,6 +1745,7 @@ function stopAuto(){
   const b = $('autoBtn'); if (b) b.setAttribute('aria-pressed','false');
 }
 addEventListener('touchstart', e => { if (autoRAF && !e.target.closest('.tools')) stopAuto() }, {passive:true});
+document.addEventListener('pointerdown', e => { const pop = $('bkPop'); if (pop && !pop.hidden && !e.target.closest('.bk-foot')){ pop.hidden = true; const b = document.querySelector('[data-act="bkTools"]'); if (b) b.setAttribute('aria-expanded','false') } }, true);
 addEventListener('wheel', () => { if (autoRAF) stopAuto() }, {passive:true});
 let rsT; addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(()=>{ if (BK && $('book')){ const a = pageAnchor(); BK.baseFs = 0; for (const k in natW) delete natW[k]; setupBook(BK.key, a) } }, 200) });
 
