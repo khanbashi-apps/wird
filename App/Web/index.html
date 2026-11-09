@@ -1610,7 +1610,7 @@ function showPage(){
   BK.front.style.clipPath = ''; BK.flapWrap.hidden = true; BK.under.hidden = true; BK.mode = null;
   const sp = pages[i].f ? pages[i].src : pages[i].p, mt = MUSHAF.meta[sp] || {};
   $('pgNo').textContent = AR(sp);
-  $('pgSura').textContent = mt.s || SURAH[key].name.replace('سورة ','');
+  $('pgSura').textContent = SURAH[key].name.replace('سورة ','');
   $('pgJuz').textContent = 'الجزء ' + AR(mt.j || 0);
   $('pgOf').textContent = `صفحة ${AR(i+1)} من ${AR(pages.length)}`;
   $('pgBar').style.width = ((i+1)/pages.length*100)+'%';
