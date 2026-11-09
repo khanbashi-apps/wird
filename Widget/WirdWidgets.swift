@@ -48,10 +48,10 @@ enum WDigits: String, AppEnum {
 
 #if WIDGET_EXTENSION
 enum WBackground: String, AppEnum {
-    case gradient, solid
+    case gradient, solid, glassClear, glassFrosted
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "الخلفية"
     static var caseDisplayRepresentations: [WBackground: DisplayRepresentation] = [
-        .gradient: "متدرّجة", .solid: "سادة"
+        .gradient: "متدرّجة", .solid: "سادة", .glassClear: "زجاج شفاف", .glassFrosted: "زجاج مضبّب"
     ]
 }
 #endif
@@ -106,7 +106,7 @@ struct WirdLockIntent: WidgetConfigurationIntent {
 enum WColors: String { case app, navy, emerald, sand, teal }
 enum WMode: String { case auto, day, night }
 enum WDigits: String { case arabic, english }
-enum WBackground: String { case gradient, solid }
+enum WBackground: String { case gradient, solid, glassClear, glassFrosted }
 enum WShape: String { case ring, octagram, button, beads, week }
 enum WLockShape: String { case ring, octagram, button, beads, week }
 #endif
@@ -180,6 +180,7 @@ struct LockProvider: AppIntentTimelineProvider {
 struct Theme {
     let c: WirdColors
     let solid: Bool
+    let glass: WBackground?
     init(_ e: IstEntry, _ scheme: ColorScheme) {
         let pal: WirdPalette = e.style.colors == .app ? e.state.palette : (WirdPalette.all[e.style.colors.rawValue] ?? .navy)
         let dark: Bool
@@ -190,9 +191,18 @@ struct Theme {
         }
         c = dark ? pal.dark : pal.light
         solid = e.style.background == .solid
+        glass = (e.style.background == .glassClear || e.style.background == .glassFrosted) ? e.style.background : nil
     }
     @ViewBuilder var bg: some View {
-        if solid { Color(hex: c.bg2) }
+        if let glass {
+            // Liquid Glass (iOS 26): the wallpaper shows through, frosted or clear
+            if #available(iOS 26.0, *) {
+                Rectangle().fill(.clear)
+                    .glassEffect(glass == .glassClear ? .clear : .regular, in: .rect(cornerRadius: 0))
+            } else {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+        } else if solid { Color(hex: c.bg2) }
         else { LinearGradient(colors: [Color(hex: c.bg1), Color(hex: c.bg2)], startPoint: .topTrailing, endPoint: .bottomLeading) }
     }
     var bead: Color { Color(hex: c.bead) }
