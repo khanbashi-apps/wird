@@ -24,6 +24,7 @@ struct WirdWidgetBundle: WidgetBundle {
 #endif
 
 // MARK: - «تعديل الأداة» options
+#if WIDGET_EXTENSION
 enum WColors: String, AppEnum {
     case app, navy, emerald, sand, teal
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "الألوان"
@@ -31,7 +32,9 @@ enum WColors: String, AppEnum {
         .app: "حسب التطبيق", .navy: "كحلي ذهبي", .emerald: "زمرّدي", .sand: "رملي", .teal: "فيروزي"
     ]
 }
+#endif
 
+#if WIDGET_EXTENSION
 enum WMode: String, AppEnum {
     case auto, day, night
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "الوضع"
@@ -39,7 +42,9 @@ enum WMode: String, AppEnum {
         .auto: "تلقائي مع الآيفون", .day: "نهاري", .night: "ليلي"
     ]
 }
+#endif
 
+#if WIDGET_EXTENSION
 enum WDigits: String, AppEnum {
     case arabic, english
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "الأرقام"
@@ -47,7 +52,9 @@ enum WDigits: String, AppEnum {
         .arabic: "عربية ١٢٣", .english: "إنجليزية 123"
     ]
 }
+#endif
 
+#if WIDGET_EXTENSION
 enum WBackground: String, AppEnum {
     case gradient, solid
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "الخلفية"
@@ -55,11 +62,12 @@ enum WBackground: String, AppEnum {
         .gradient: "متدرّجة", .solid: "سادة"
     ]
 }
+#endif
 
+#if WIDGET_EXTENSION
 struct WirdStyleIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "شكل الأداة"
     static var description = IntentDescription("الألوان والوضع والأرقام والخلفية.")
-    static var isDiscoverable: Bool = false
 
     @Parameter(title: "الألوان", default: .app) var colors: WColors
     @Parameter(title: "الوضع", default: .auto) var mode: WMode
@@ -68,16 +76,26 @@ struct WirdStyleIntent: WidgetConfigurationIntent {
 
     init() {}
 }
+#endif
 
+#if WIDGET_EXTENSION
 struct WirdLockIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "أداة شاشة القفل"
     static var description = IntentDescription("طريقة كتابة الأرقام.")
-    static var isDiscoverable: Bool = false
 
     @Parameter(title: "الأرقام", default: .arabic) var digits: WDigits
 
     init() {}
 }
+#endif
+
+#if !WIDGET_EXTENSION
+// The app only needs plain values (for the widget preview gallery); intents live in the extension.
+enum WColors: String { case app, navy, emerald, sand, teal }
+enum WMode: String { case auto, day, night }
+enum WDigits: String { case arabic, english }
+enum WBackground: String { case gradient, solid }
+#endif
 
 // MARK: - timeline
 struct WStyle {
@@ -108,6 +126,7 @@ func makeTimeline(_ s: IstState, _ style: WStyle) -> Timeline<IstEntry> {
                     policy: .after(midnight.addingTimeInterval(2)))
 }
 
+#if WIDGET_EXTENSION
 struct StyleProvider: AppIntentTimelineProvider {
     func style(_ c: WirdStyleIntent) -> WStyle { WStyle(colors: c.colors, mode: c.mode, digits: c.digits, background: c.background) }
     func placeholder(in context: Context) -> IstEntry { IstEntry(date: Date(), state: placeholderState()) }
@@ -119,7 +138,9 @@ struct StyleProvider: AppIntentTimelineProvider {
         makeTimeline(IstStore.load(), style(configuration))
     }
 }
+#endif
 
+#if WIDGET_EXTENSION
 struct LockProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> IstEntry { IstEntry(date: Date(), state: placeholderState()) }
     func snapshot(for configuration: WirdLockIntent, in context: Context) async -> IstEntry {
@@ -130,6 +151,7 @@ struct LockProvider: AppIntentTimelineProvider {
         makeTimeline(IstStore.load(), WStyle(digits: configuration.digits))
     }
 }
+#endif
 
 // MARK: - colors
 struct Theme {
@@ -294,6 +316,7 @@ struct WeekBars: View {
 }
 
 // MARK: - 1. ring (small, medium, large)
+#if WIDGET_EXTENSION
 struct RingWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.ring", intent: WirdStyleIntent.self, provider: StyleProvider()) { e in RingView(e: e) }
@@ -302,6 +325,7 @@ struct RingWidget: Widget {
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
+#endif
 
 struct RingView: View {
     let e: IstEntry
@@ -368,6 +392,7 @@ struct RingView: View {
 }
 
 // MARK: - 2. octagram, like the counter inside the app (small, medium, large)
+#if WIDGET_EXTENSION
 struct OctagramWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.octagram", intent: WirdStyleIntent.self, provider: StyleProvider()) { e in OctagramView(e: e) }
@@ -376,6 +401,7 @@ struct OctagramWidget: Widget {
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
+#endif
 
 struct OctagramView: View {
     let e: IstEntry
@@ -433,6 +459,7 @@ struct OctagramView: View {
 }
 
 // MARK: - 3. button (small + medium)
+#if WIDGET_EXTENSION
 struct ButtonWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.button", intent: WirdStyleIntent.self, provider: StyleProvider()) { e in ButtonView(e: e) }
@@ -441,6 +468,7 @@ struct ButtonWidget: Widget {
             .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
+#endif
 
 struct ButtonView: View {
     let e: IstEntry
@@ -475,6 +503,7 @@ struct ButtonView: View {
 }
 
 // MARK: - 4. beads (small + medium)
+#if WIDGET_EXTENSION
 struct BeadsWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.beads", intent: WirdStyleIntent.self, provider: StyleProvider()) { e in BeadsView(e: e) }
@@ -483,6 +512,7 @@ struct BeadsWidget: Widget {
             .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
+#endif
 
 struct BeadsView: View {
     let e: IstEntry
@@ -525,6 +555,7 @@ struct BeadsView: View {
 }
 
 // MARK: - 5. week (medium + large)
+#if WIDGET_EXTENSION
 struct WeekWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.week", intent: WirdStyleIntent.self, provider: StyleProvider()) { e in WeekView(e: e) }
@@ -533,6 +564,7 @@ struct WeekWidget: Widget {
             .supportedFamilies([.systemMedium, .systemLarge])
     }
 }
+#endif
 
 struct WeekView: View {
     let e: IstEntry
@@ -569,6 +601,7 @@ struct WeekView: View {
 }
 
 // MARK: - Lock Screen widgets (small = circle, medium = rectangle, line = inline)
+#if WIDGET_EXTENSION
 struct LockRingWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.lock.ring", intent: WirdLockIntent.self, provider: LockProvider()) { e in LockRingView(e: e) }
@@ -577,6 +610,7 @@ struct LockRingWidget: Widget {
             .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
+#endif
 
 struct LockRingView: View {
     let e: IstEntry
@@ -617,6 +651,7 @@ struct LockRingView: View {
     }
 }
 
+#if WIDGET_EXTENSION
 struct LockOctagramWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.lock.octagram", intent: WirdLockIntent.self, provider: LockProvider()) { e in LockOctagramView(e: e) }
@@ -625,6 +660,7 @@ struct LockOctagramWidget: Widget {
             .supportedFamilies([.accessoryCircular, .accessoryRectangular])
     }
 }
+#endif
 
 struct LockOctagramView: View {
     let e: IstEntry
@@ -665,6 +701,7 @@ struct LockOctagramView: View {
     }
 }
 
+#if WIDGET_EXTENSION
 struct LockButtonWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.lock.button", intent: WirdLockIntent.self, provider: LockProvider()) { e in LockButtonView(e: e) }
@@ -673,6 +710,7 @@ struct LockButtonWidget: Widget {
             .supportedFamilies([.accessoryCircular, .accessoryRectangular])
     }
 }
+#endif
 
 struct LockButtonView: View {
     let e: IstEntry
@@ -712,6 +750,7 @@ struct LockButtonView: View {
     }
 }
 
+#if WIDGET_EXTENSION
 struct LockBeadsWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.lock.beads", intent: WirdLockIntent.self, provider: LockProvider()) { e in LockBeadsView(e: e) }
@@ -720,6 +759,7 @@ struct LockBeadsWidget: Widget {
             .supportedFamilies([.accessoryCircular])
     }
 }
+#endif
 
 struct LockBeadsView: View {
     let e: IstEntry
@@ -737,6 +777,7 @@ struct LockBeadsView: View {
     }
 }
 
+#if WIDGET_EXTENSION
 struct LockWeekWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.lock.week", intent: WirdLockIntent.self, provider: LockProvider()) { e in LockWeekView(e: e) }
@@ -745,6 +786,7 @@ struct LockWeekWidget: Widget {
             .supportedFamilies([.accessoryRectangular])
     }
 }
+#endif
 
 struct LockWeekView: View {
     let e: IstEntry
@@ -796,6 +838,7 @@ struct LiveCard: View {
 
 // MARK: - Lock Screen live activity (+ Dynamic Island where available)
 // No background tint, so iOS draws its own glass like other notifications.
+#if WIDGET_EXTENSION
 struct WirdLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: WirdActivityAttributes.self) { ctx in
@@ -830,3 +873,4 @@ struct WirdLiveActivity: Widget {
         }
     }
 }
+#endif

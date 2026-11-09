@@ -55,6 +55,7 @@ body.nopat .bg-pat,body.nopat .bg-star{display:none}
 .glass::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(145deg,rgba(255,255,255,.14),transparent 40%);pointer-events:none}
 
 .app{max-width:480px;margin:0 auto;min-height:100%;padding-bottom:130px}
+.app:has(.ist-ring){padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
 .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 
 /* ===== header ===== */
@@ -159,8 +160,13 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .prog-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-bottom:6px}
 .prog-row b{color:var(--fg);font-weight:600}
 .meter.full i{background:var(--done)}
-.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-radius:14px;overflow:hidden;flex:none}
-.seg button{min-width:58px;height:42px;font-weight:600;padding:0 10px;position:relative;white-space:nowrap}
+.seg{display:flex;border-radius:14px;overflow:hidden;flex:none;border:1px solid var(--line)}
+.seg.eq button{width:64px;min-width:64px;padding:0}
+.row.stack{flex-wrap:wrap}
+.row.stack .lab{flex:1 1 100%}
+.row.stack .seg{flex:1 1 100%}
+.row.stack .seg button{flex:1;min-width:0}
+.seg button{min-width:48px;height:40px;font-weight:600;padding:0 10px;position:relative;white-space:nowrap}
 .seg button+button{border-inline-start:1px solid var(--line)}
 .seg button[aria-pressed="true"]{background:var(--acc);color:var(--acc-fg)}
 .list{display:flex;flex-direction:column;gap:16px;padding-top:12px}
@@ -668,7 +674,8 @@ button.hc{border:0;padding:0;cursor:pointer}
 .lk-r b small{font-family:var(--f-ui);font-size:11px}
 .lk-line{margin:4px 0 0;background:rgba(255,255,255,.22)}.lk-line i{background:#fff}
 
-body.fixed .grid{gap:8px}
+body.fixed .grid{gap:8px;flex:1 1 auto;grid-auto-rows:1fr}
+body.fixed .home-body .week{flex:none}
 .about{display:flex;flex-direction:column;align-items:center;gap:2px;margin:26px 0 6px;text-align:center}
 .about b{font-family:var(--f-disp);font-size:22px}
 .about small{font-size:12px;color:var(--muted)}
@@ -1073,15 +1080,15 @@ function sheetHTML(){
     <div class="row"><div class="lab"><b>الوضع المختصر</b><small>لمن يحفظ الأذكار: يخفي الفضل ويصغّر البطاقات</small></div>${sw('compact',S.compact)}</div>
   </div></div>
   <div class="grp"><h4>قراءة السور</h4><div class="box glass">
-    <div class="row"><div class="lab"><b>طريقة القراءة</b><small>${S.reader==='book'?'كتاب: تقليب الصفحات بالسحب أو بالنقر على طرف الصفحة':'طولي: تمرير متصل للأسفل، مع تمرير تلقائي'}</small></div>
-      <div class="seg">${[['scroll','طولي'],['book','كتاب']].map(([k,l])=>`<button data-reader="${k}" aria-pressed="${S.reader===k}">${l}</button>`).join('')}</div></div>
+    <div class="row"><div class="lab"><b>طريقة القراءة</b><small>طولي: تمرير متصل · كتاب: تقليب الصفحات</small></div>
+      <div class="seg eq">${[['scroll','طولي'],['book','كتاب']].map(([k,l])=>`<button data-reader="${k}" aria-pressed="${S.reader===k}">${l}</button>`).join('')}</div></div>
   </div></div>
   <div class="grp"><h4>التاريخ الهجري</h4><div class="box glass">
     <div class="row"><div class="lab"><b>تعديل اليوم</b><small>${hijri()}</small></div>
-      <div class="seg">${[-1,0,1].map(n=>`<button data-hadj="${n}" aria-pressed="${S.hijriAdj===n}">${n>0?'+'+AR(n):n<0?'−'+AR(-n):AR(0)}</button>`).join('')}</div></div>
+      <div class="seg eq">${[-1,0,1].map(n=>`<button data-hadj="${n}" aria-pressed="${S.hijriAdj===n}">${n>0?'+'+AR(n):n<0?'−'+AR(-n):AR(0)}</button>`).join('')}</div></div>
   </div></div>
   <div class="grp"><h4>الاستغفار</h4><div class="box glass">
-    <div class="row"><div class="lab"><b>الهدف اليومي</b><small>يظهر كحلقة حول العداد وفي الرئيسية</small></div>
+    <div class="row stack"><div class="lab"><b>الهدف اليومي</b><small>يظهر كحلقة حول العداد وفي الرئيسية</small></div>
       <div class="seg">${[100,300,1000].map(n=>`<button data-goal="${n}" aria-pressed="${istGoal()===n}">${AR(n)}</button>`).join('')}<button data-goal="custom" aria-pressed="${![100,300,1000].includes(istGoal())}">${[100,300,1000].includes(istGoal())?'مخصص':AR(istGoal())}</button></div></div>
     <div class="row"><div class="lab"><b>تذكير بعد الصلوات</b><small>«أستغفر الله» ثلاثاً بعد كل صلاة</small></div>${sw('rem.prayer',!!S.rem.prayer)}</div>
     <div class="row"><div class="lab"><b>تذكير الأسحار</b><small>في الثلث الأخير من الليل</small></div>${sw('rem.sahar',!!S.rem.sahar)}</div>
