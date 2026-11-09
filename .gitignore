@@ -1,0 +1,6 @@
+*.xcodeproj/
+build/
+buildsim/
+out/
+DerivedData/
+.DS_Store

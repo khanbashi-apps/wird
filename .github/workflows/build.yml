@@ -1,0 +1,82 @@
+name: build
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: build
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        run: |
+          ls -d /Applications/Xcode*.app
+          X=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          echo "Using $X"; sudo xcode-select -s "$X"; xcodebuild -version
+      - name: Generate project
+        run: |
+          brew install xcodegen >/dev/null
+          xcodegen generate
+      - name: Build for iPhone (unsigned)
+        run: |
+          set -o pipefail
+          mkdir -p out
+          xcodebuild -project Wird.xcodeproj -target Wird -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee out/build-device.log | grep -E "error:|warning: |BUILD (SUCCEEDED|FAILED)" | head -200
+      - name: Package IPA
+        run: |
+          APP=build/Release-iphoneos/Wird.app
+          test -d "$APP/PlugIns/WirdWidgets.appex"
+          ls "$APP" "$APP/Web" | head -40
+          plutil -p "$APP/Info.plist"
+          codesign -f -s - --entitlements App/Wird.entitlements --generate-entitlement-der "$APP/PlugIns/WirdWidgets.appex" || true
+          codesign -f -s - --entitlements App/Wird.entitlements --generate-entitlement-der "$APP" || true
+          mkdir -p out/Payload && cp -R "$APP" out/Payload/
+          (cd out && zip -qry Wird-1.0.0-unsigned.ipa Payload && rm -rf Payload)
+          ls -la out
+      - name: Build for Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project Wird.xcodeproj -target Wird -configuration Debug -sdk iphonesimulator -arch arm64 \
+            SYMROOT="$PWD/buildsim" CODE_SIGNING_ALLOWED=NO build 2>&1 | tee out/build-sim.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" | head -100
+      - name: Run in Simulator and take screenshots
+        run: |
+          set -x
+          DEV=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=[x for r in d for x in d[r] if 'iPhone' in x['name'] and 'Pro' in x['name'] and 'Max' not in x['name']]; print(c[-1]['udid'])")
+          xcrun simctl boot "$DEV"; xcrun simctl bootstatus "$DEV" -b
+          xcrun simctl location "$DEV" set 23.5880,58.3829 || true
+          xcrun simctl install "$DEV" buildsim/Debug-iphonesimulator/Wird.app
+          xcrun simctl privacy "$DEV" grant location om.alkhanbashi.wird || true
+          xcrun simctl privacy "$DEV" grant notifications om.alkhanbashi.wird || true
+          mkdir -p out/shots
+          for R in home istighfar kahf mulk morning; do
+            SIMCTL_CHILD_WIRD_ROUTE=$R xcrun simctl launch --terminate-running-process "$DEV" om.alkhanbashi.wird
+            sleep 9
+            xcrun simctl io "$DEV" screenshot "out/shots/$R.png"
+          done
+          xcrun simctl ui "$DEV" appearance dark
+          SIMCTL_CHILD_WIRD_ROUTE=settings xcrun simctl launch --terminate-running-process "$DEV" om.alkhanbashi.wird
+          sleep 9; xcrun simctl io "$DEV" screenshot out/shots/settings.png
+          C=$(xcrun simctl get_app_container "$DEV" om.alkhanbashi.wird data)
+          cp "$C/Documents/js-errors.log" out/js-errors.log 2>/dev/null || echo "no JS errors" > out/js-errors.log
+          cat out/js-errors.log
+          (cd out/shots && zip -q ../screenshots.zip *.png)
+      - name: Collect errors
+        if: always()
+        run: |
+          mkdir -p out
+          { echo "== device =="; grep -E "error:" out/build-device.log || true; echo "== simulator =="; grep -E "error:" out/build-sim.log || true; } > out/errors.txt 2>/dev/null || true
+          cat out/errors.txt
+      - name: Publish release
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete v1.0.0 --yes --cleanup-tag || true
+          FILES=$(ls out/*.ipa out/screenshots.zip out/errors.txt out/js-errors.log out/shots/*.png 2>/dev/null)
+          gh release create v1.0.0 $FILES --title "وِرد 1.0.0" --notes "نسخة غير موقّعة للتثبيت بأداة التوقيع. بُنيت بـ Xcode 26 في GitHub Actions." --target "$GITHUB_SHA"
