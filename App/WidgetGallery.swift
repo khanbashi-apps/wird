@@ -41,6 +41,9 @@ enum WidgetGallery {
             ("beads-m", AnyView(BeadsView(e: e(), forced: .systemMedium)), medium, false),
             ("week-m", AnyView(WeekView(e: e(navyNight), forced: .systemMedium)), medium, false),
             ("week-l", AnyView(WeekView(e: e(emeraldDay), forced: .systemLarge)), large, false),
+            ("week-s", AnyView(WeekView(e: e(navyNight), forced: .systemSmall)), small, false),
+            ("beads-l", AnyView(BeadsView(e: e(), forced: .systemLarge)), large, false),
+            ("btn-l", AnyView(ButtonView(e: e(navyNight), forced: .systemLarge)), large, false),
             ("lock-ring-c", AnyView(LockRingView(e: e(), forced: .accessoryCircular)), circ, true),
             ("lock-ring-r", AnyView(LockRingView(e: e(), forced: .accessoryRectangular)), rect, true),
             ("lock-oct-c", AnyView(LockOctagramView(e: e(), forced: .accessoryCircular)), circ, true),
@@ -75,7 +78,7 @@ enum WidgetGallery {
     private static func galleryBackground(_ name: String, _ s: IstState) -> some View {
         let st: WStyle
         switch name {
-        case "ring-s", "oct-m", "btn-s", "beads-s", "week-m": st = WStyle(colors: .navy, mode: .night)
+        case "ring-s", "oct-m", "btn-s", "beads-s", "week-m", "week-s", "btn-l": st = WStyle(colors: .navy, mode: .night)
         case "ring-l", "oct-s-day", "btn-m", "week-l": st = WStyle(colors: .emerald, mode: .day, digits: .english)
         case "oct-l": st = WStyle(colors: .teal, mode: .night, digits: .arabic, background: .solid)
         default: st = WStyle()

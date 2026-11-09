@@ -8,15 +8,7 @@ import ActivityKit
 struct WirdWidgetBundle: WidgetBundle {
     var body: some Widget {
         RingWidget()
-        OctagramWidget()
-        ButtonWidget()
-        BeadsWidget()
-        WeekWidget()
         LockRingWidget()
-        LockOctagramWidget()
-        LockButtonWidget()
-        LockBeadsWidget()
-        LockWeekWidget()
         WirdLiveActivity()
     }
 }
@@ -65,10 +57,29 @@ enum WBackground: String, AppEnum {
 #endif
 
 #if WIDGET_EXTENSION
+enum WShape: String, AppEnum {
+    case ring, octagram, button, beads, week
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "الشكل"
+    static var caseDisplayRepresentations: [WShape: DisplayRepresentation] = [
+        .ring: "الحلقة", .octagram: "النجمة الثمانية", .button: "الزر", .beads: "السبحة", .week: "الأسبوع"
+    ]
+}
+
+enum WLockShape: String, AppEnum {
+    case ring, octagram, button, beads, week
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "الشكل"
+    static var caseDisplayRepresentations: [WLockShape: DisplayRepresentation] = [
+        .ring: "الحلقة", .octagram: "النجمة الثمانية", .button: "زر +١", .beads: "السبحة", .week: "الأسبوع (مستطيل)"
+    ]
+}
+#endif
+
+#if WIDGET_EXTENSION
 struct WirdStyleIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "شكل الأداة"
     static var description = IntentDescription("الألوان والوضع والأرقام والخلفية.")
 
+    @Parameter(title: "الشكل", default: .ring) var shape: WShape
     @Parameter(title: "الألوان", default: .app) var colors: WColors
     @Parameter(title: "الوضع", default: .auto) var mode: WMode
     @Parameter(title: "الأرقام", default: .arabic) var digits: WDigits
@@ -83,6 +94,7 @@ struct WirdLockIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "أداة شاشة القفل"
     static var description = IntentDescription("طريقة كتابة الأرقام.")
 
+    @Parameter(title: "الشكل", default: .ring) var shape: WLockShape
     @Parameter(title: "الأرقام", default: .arabic) var digits: WDigits
 
     init() {}
@@ -95,6 +107,8 @@ enum WColors: String { case app, navy, emerald, sand, teal }
 enum WMode: String { case auto, day, night }
 enum WDigits: String { case arabic, english }
 enum WBackground: String { case gradient, solid }
+enum WShape: String { case ring, octagram, button, beads, week }
+enum WLockShape: String { case ring, octagram, button, beads, week }
 #endif
 
 // MARK: - timeline
@@ -103,6 +117,8 @@ struct WStyle {
     var mode: WMode = .auto
     var digits: WDigits = .arabic
     var background: WBackground = .gradient
+    var shape: WShape = .ring
+    var lockShape: WLockShape = .ring
 }
 
 struct IstEntry: TimelineEntry {
@@ -134,7 +150,7 @@ func makeTimeline(_ s: IstState, _ style: WStyle) -> Timeline<IstEntry> {
 
 #if WIDGET_EXTENSION
 struct StyleProvider: AppIntentTimelineProvider {
-    func style(_ c: WirdStyleIntent) -> WStyle { WStyle(colors: c.colors, mode: c.mode, digits: c.digits, background: c.background) }
+    func style(_ c: WirdStyleIntent) -> WStyle { WStyle(colors: c.colors, mode: c.mode, digits: c.digits, background: c.background, shape: c.shape) }
     func placeholder(in context: Context) -> IstEntry { IstEntry(date: Date(), state: placeholderState()) }
     func snapshot(for configuration: WirdStyleIntent, in context: Context) async -> IstEntry {
         // the widget gallery gets a ready sample at once, without touching storage
@@ -151,11 +167,11 @@ struct StyleProvider: AppIntentTimelineProvider {
 struct LockProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> IstEntry { IstEntry(date: Date(), state: placeholderState()) }
     func snapshot(for configuration: WirdLockIntent, in context: Context) async -> IstEntry {
-        if context.isPreview { return IstEntry(date: Date(), state: placeholderState(), style: WStyle(digits: configuration.digits)) }
-        return IstEntry(date: Date(), state: IstStore.load(), style: WStyle(digits: configuration.digits))
+        if context.isPreview { return IstEntry(date: Date(), state: placeholderState(), style: WStyle(digits: configuration.digits, lockShape: configuration.shape)) }
+        return IstEntry(date: Date(), state: IstStore.load(), style: WStyle(digits: configuration.digits, lockShape: configuration.shape))
     }
     func timeline(for configuration: WirdLockIntent, in context: Context) async -> Timeline<IstEntry> {
-        makeTimeline(IstStore.load(), WStyle(digits: configuration.digits))
+        makeTimeline(IstStore.load(), WStyle(digits: configuration.digits, lockShape: configuration.shape))
     }
 }
 #endif
@@ -322,13 +338,41 @@ struct WeekBars: View {
     }
 }
 
+// MARK: - one widget, the shape is chosen in «تعديل الأداة»
+struct ShapeView: View {
+    let e: IstEntry
+    var body: some View {
+        switch e.style.shape {
+        case .ring: RingView(e: e)
+        case .octagram: OctagramView(e: e)
+        case .button: ButtonView(e: e)
+        case .beads: BeadsView(e: e)
+        case .week: WeekView(e: e)
+        }
+    }
+}
+
+struct LockShapeView: View {
+    let e: IstEntry
+    @Environment(\.widgetFamily) var family
+    var body: some View {
+        switch (e.style.lockShape, family) {
+        case (.octagram, .accessoryCircular), (.octagram, .accessoryRectangular): LockOctagramView(e: e)
+        case (.button, .accessoryCircular), (.button, .accessoryRectangular): LockButtonView(e: e)
+        case (.beads, .accessoryCircular): LockBeadsView(e: e)
+        case (.week, .accessoryRectangular): LockWeekView(e: e)
+        default: LockRingView(e: e)
+        }
+    }
+}
+
 // MARK: - 1. ring (small, medium, large)
 #if WIDGET_EXTENSION
 struct RingWidget: Widget {
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: "wird.ring", intent: WirdStyleIntent.self, provider: StyleProvider()) { e in RingView(e: e) }
-            .configurationDisplayName("حلقة الاستغفار")
-            .description("عدد اليوم حول حلقة الهدف. النقر عليها يضيف استغفاراً.")
+        AppIntentConfiguration(kind: "wird.ring", intent: WirdStyleIntent.self, provider: StyleProvider()) { e in ShapeView(e: e) }
+            .configurationDisplayName("عدّاد الاستغفار")
+            .description("اضغط مطوّلاً ← «تعديل الأداة» لتختار الشكل والألوان والأرقام.")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -542,7 +586,13 @@ struct BeadsView: View {
             }
         }.buttonStyle(.plain)
         Group {
-            if family == .systemMedium {
+            if family == .systemLarge {
+                VStack(spacing: 12) {
+                    dial.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Text(e.state.formText).font(.system(size: 20, weight: .semibold)).foregroundStyle(th.text).lineLimit(1).minimumScaleFactor(0.7)
+                    PlusButton(label: e.plus, fg: th.onBead, bg: th.bead, wide: true)
+                }
+            } else if family == .systemMedium {
                 HStack(spacing: 14) {
                     dial.frame(width: 130, height: 130)
                     VStack(alignment: .trailing, spacing: 6) {
@@ -582,6 +632,23 @@ struct WeekView: View {
     var body: some View {
         let th = Theme(e, scheme)
         let week = IstStore.lastDays(e.state, count: 7).map(\.value).reduce(0, +)
+        if family == .systemSmall {
+            Button(intent: AddIstighfarIntent()) {
+                VStack(alignment: .trailing, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(e.n(e.today)).font(.system(size: 30, weight: .bold)).foregroundStyle(th.bead)
+                            .minimumScaleFactor(0.6).lineLimit(1)
+                            .contentTransition(.numericText(value: Double(e.today)))
+                        Spacer()
+                        Text("اليوم").font(.system(size: 11)).foregroundStyle(th.text.opacity(0.7))
+                    }
+                    WeekBars(state: e.state, color: th.bead, label: th.text)
+                }
+            }
+            .buttonStyle(.plain)
+            .environment(\.layoutDirection, .rightToLeft)
+            .containerBackground(for: .widget) { th.bg }
+        } else {
         VStack(alignment: .trailing, spacing: 8) {
             HStack(alignment: .top) {
                 VStack(alignment: .trailing, spacing: 2) {
@@ -604,6 +671,7 @@ struct WeekView: View {
         }
         .environment(\.layoutDirection, .rightToLeft)
         .containerBackground(for: .widget) { th.bg }
+        }
     }
 }
 
@@ -611,9 +679,9 @@ struct WeekView: View {
 #if WIDGET_EXTENSION
 struct LockRingWidget: Widget {
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: "wird.lock.ring", intent: WirdLockIntent.self, provider: LockProvider()) { e in LockRingView(e: e) }
-            .configurationDisplayName("حلقة الاستغفار")
-            .description("لشاشة القفل. النقر يضيف استغفاراً.")
+        AppIntentConfiguration(kind: "wird.lock.ring", intent: WirdLockIntent.self, provider: LockProvider()) { e in LockShapeView(e: e) }
+            .configurationDisplayName("عدّاد الاستغفار")
+            .description("لشاشة القفل. اختر الشكل من «تعديل الأداة». النقر يضيف استغفاراً.")
             .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
