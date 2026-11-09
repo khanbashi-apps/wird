@@ -37,7 +37,7 @@ jobs:
           codesign -f -s - --entitlements App/Wird.entitlements --generate-entitlement-der "$APP/PlugIns/WirdWidgets.appex" || true
           codesign -f -s - --entitlements App/Wird.entitlements --generate-entitlement-der "$APP" || true
           mkdir -p out/Payload && cp -R "$APP" out/Payload/
-          (cd out && zip -qry Wird-1.0.0-build2.ipa Payload && rm -rf Payload)
+          (cd out && zip -qry Wird-1.0.1.ipa Payload && rm -rf Payload)
           ls -la out
       - name: Build for Simulator
         run: |
@@ -82,6 +82,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete v1.0.0 --yes --cleanup-tag || true
+          gh release delete v1.0.1 --yes --cleanup-tag || true
           FILES=$(ls out/*.ipa out/screenshots.zip out/widgets.zip out/errors.txt out/js-errors.log out/shots/*.png 2>/dev/null)
-          gh release create v1.0.0 $FILES --title "وِرد 1.0.0" --notes "نسخة غير موقّعة للتثبيت بأداة التوقيع. بُنيت بـ Xcode 26 في GitHub Actions." --target "$GITHUB_SHA"
+          gh release create v1.0.1 $FILES --title "وِرد 1.0.1" --notes "نسخة غير موقّعة للتثبيت بأداة التوقيع. بُنيت بـ Xcode 26 في GitHub Actions." --target "$GITHUB_SHA"
