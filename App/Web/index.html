@@ -632,6 +632,7 @@ button.hc{border:0;padding:0;cursor:pointer}
 .w-m{height:158px;padding:14px;display:flex;gap:14px;align-items:center}
 .w-l{padding:16px;display:flex;flex-direction:column;gap:10px}
 .w-ring{width:100%;height:100%;transform:rotate(-90deg)}
+.w-oct{fill:color-mix(in srgb,var(--ic-bead) 12%,transparent);stroke:var(--ic-bead);stroke-width:1.2;transform-box:view-box;transform-origin:50px 50px;transition:transform .45s cubic-bezier(.3,.7,.3,1)}
 .wr-t{fill:none;stroke:color-mix(in srgb,currentColor 14%,transparent)}
 .wr-v{fill:none;stroke:var(--ic-bead);stroke-linecap:round;transition:stroke-dashoffset .3s}
 .w-glass .wr-v,.w-paper .wr-v{stroke:var(--orn)}
@@ -1758,6 +1759,7 @@ const istRingSVG = (r, cls='') => { const C = 2*Math.PI*r; return `<circle class
 function istPaint(src){
   const today = istToday(), g = istGoal(), p = Math.min(1, today/g);
   document.querySelectorAll('[data-ist="today"]').forEach(e=>e.textContent = AR(today));
+  document.querySelectorAll('[data-ist="oct"]').forEach(e=>e.style.transform = `rotate(${today*45}deg)`);
   document.querySelectorAll('[data-ist="total"]').forEach(e=>e.textContent = AR(IST.total.toLocaleString('en').replace(/,/g,'٬')));
   document.querySelectorAll('[data-ist="goal"]').forEach(e=>e.textContent = AR(g));
   document.querySelectorAll('[data-ist="streak"]').forEach(e=>e.textContent = AR(istStreak()));
@@ -2067,6 +2069,10 @@ function wgHome(){
   <div class="w w-m w-dark">
     <div class="w-m-ring"><svg class="w-ring" viewBox="0 0 100 100">${wRing(42,7)}</svg><div class="w-c"><b class="digits" data-ist="today">${t}</b><small>من <span data-ist="goal">${g}</span></small></div></div>
     <div class="w-m-body"><p class="w-f">${f.t}</p><div class="w-m-row"><small>${new Intl.DateTimeFormat('ar-u-nu-arab',{weekday:'long'}).format(new Date())}</small>${plusBtn()}</div></div>
+  </div>
+  <div class="w w-m w-dark" data-wadd role="button" aria-label="ويدجت: النجمة الثمانية">
+    <div class="w-m-ring"><svg class="w-ring" viewBox="0 0 100 100">${wRing(44,4)}<path class="w-oct" data-ist="oct" d="${octPath(50,50,32)}" style="transform:rotate(${istToday()*45}deg)"/></svg><div class="w-c"><b class="digits" data-ist="today">${t}</b></div></div>
+    <div class="w-m-body"><p class="w-f">${f.t}</p><div class="w-m-row"><small>النجمة الثمانية</small>${plusBtn()}</div></div>
   </div>
   <div class="w w-m w-glass">
     <div class="w-m-body"><small class="w-lbl">هذا الأسبوع</small><b class="w-big digits" data-ist="today">${t}</b><small class="w-lbl">اليوم من <span data-ist="goal">${g}</span></small></div>

@@ -116,7 +116,13 @@ struct IstEntry: TimelineEntry {
 }
 
 private func placeholderState() -> IstState {
-    var s = IstState(); s.days[IstStore.dayKey()] = 120; return s
+    var s = IstState()
+    let cal = Calendar(identifier: .gregorian)
+    for (i, v) in [180, 300, 240, 90, 310, 200, 120].enumerated() {
+        if let d = cal.date(byAdding: .day, value: -(6 - i), to: Date()) { s.days[IstStore.dayKey(d)] = v }
+    }
+    s.total = 1_440
+    return s
 }
 func makeTimeline(_ s: IstState, _ style: WStyle) -> Timeline<IstEntry> {
     let cal = Calendar(identifier: .gregorian)
@@ -131,8 +137,9 @@ struct StyleProvider: AppIntentTimelineProvider {
     func style(_ c: WirdStyleIntent) -> WStyle { WStyle(colors: c.colors, mode: c.mode, digits: c.digits, background: c.background) }
     func placeholder(in context: Context) -> IstEntry { IstEntry(date: Date(), state: placeholderState()) }
     func snapshot(for configuration: WirdStyleIntent, in context: Context) async -> IstEntry {
-        let s = IstStore.load()
-        return IstEntry(date: Date(), state: context.isPreview && s.total == 0 ? placeholderState() : s, style: style(configuration))
+        // the widget gallery gets a ready sample at once, without touching storage
+        if context.isPreview { return IstEntry(date: Date(), state: placeholderState(), style: style(configuration)) }
+        return IstEntry(date: Date(), state: IstStore.load(), style: style(configuration))
     }
     func timeline(for configuration: WirdStyleIntent, in context: Context) async -> Timeline<IstEntry> {
         makeTimeline(IstStore.load(), style(configuration))
@@ -144,8 +151,8 @@ struct StyleProvider: AppIntentTimelineProvider {
 struct LockProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> IstEntry { IstEntry(date: Date(), state: placeholderState()) }
     func snapshot(for configuration: WirdLockIntent, in context: Context) async -> IstEntry {
-        let s = IstStore.load()
-        return IstEntry(date: Date(), state: context.isPreview && s.total == 0 ? placeholderState() : s, style: WStyle(digits: configuration.digits))
+        if context.isPreview { return IstEntry(date: Date(), state: placeholderState(), style: WStyle(digits: configuration.digits)) }
+        return IstEntry(date: Date(), state: IstStore.load(), style: WStyle(digits: configuration.digits))
     }
     func timeline(for configuration: WirdLockIntent, in context: Context) async -> Timeline<IstEntry> {
         makeTimeline(IstStore.load(), WStyle(digits: configuration.digits))
@@ -843,6 +850,8 @@ struct WirdLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: WirdActivityAttributes.self) { ctx in
             LiveCard(attributes: ctx.attributes, state: ctx.state)
+                // translucent tint: the Lock Screen blurs the wallpaper behind it, like notifications
+                .activityBackgroundTint(Color.white.opacity(0.10))
                 .activitySystemActionForegroundColor(Color(hex: ctx.attributes.palette.dark.bead))
         } dynamicIsland: { ctx in
             let c = ctx.attributes.palette.dark
