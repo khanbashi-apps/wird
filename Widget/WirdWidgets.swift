@@ -7,7 +7,13 @@ import ActivityKit
 @main
 struct WirdWidgetBundle: WidgetBundle {
     var body: some Widget {
+        FixedWidget(kind: "wird.s.ring", shape: .ring, name: "الحلقة", info: "عدد اليوم حول حلقة الهدف. النقر يضيف استغفاراً.")
+        FixedWidget(kind: "wird.s.octagram", shape: .octagram, name: "النجمة الثمانية", info: "نفس عدّاد التطبيق، النجمة تدور مع كل استغفار.")
+        FixedWidget(kind: "wird.s.button", shape: .button, name: "زر الاستغفار", info: "الصيغة والعدد وزر +١ كبير.")
+        FixedWidget(kind: "wird.s.beads", shape: .beads, name: "السبحة", info: "حبات تضيء كلما اقتربت من هدفك.")
+        FixedWidget(kind: "wird.s.week", shape: .week, name: "أسبوع الاستغفار", info: "عدد كل يوم في آخر سبعة أيام.")
         RingWidget()
+        FixedLockWidget()
         LockRingWidget()
         WirdLiveActivity()
     }
@@ -51,7 +57,7 @@ enum WBackground: String, AppEnum {
     case gradient, solid, glassClear, glassFrosted
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "الخلفية"
     static var caseDisplayRepresentations: [WBackground: DisplayRepresentation] = [
-        .gradient: "متدرّجة", .solid: "سادة", .glassClear: "زجاج شفاف", .glassFrosted: "زجاج مضبّب"
+        .gradient: "متدرّجة", .solid: "سادة", .glassClear: "زجاج شفاف", .glassFrosted: "زجاج سيري داكن"
     ]
 }
 #endif
@@ -149,6 +155,42 @@ func makeTimeline(_ s: IstState, _ style: WStyle) -> Timeline<IstEntry> {
 }
 
 #if WIDGET_EXTENSION
+/// Plain provider without any configuration intent.
+struct FixedProvider: TimelineProvider {
+    var style: WStyle
+    func placeholder(in context: Context) -> IstEntry { IstEntry(date: Date(), state: placeholderState(), style: style) }
+    func getSnapshot(in context: Context, completion: @escaping (IstEntry) -> Void) {
+        completion(context.isPreview ? placeholder(in: context) : IstEntry(date: Date(), state: IstStore.load(), style: style))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<IstEntry>) -> Void) {
+        completion(makeTimeline(IstStore.load(), style))
+    }
+}
+
+struct FixedWidget: Widget {
+    let kind: String
+    let shape: WShape
+    let name: String
+    let info: String
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: FixedProvider(style: WStyle(shape: shape))) { e in ShapeView(e: e) }
+            .configurationDisplayName(name)
+            .description(info)
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    }
+}
+
+struct FixedLockWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "wird.s.lock", provider: FixedProvider(style: WStyle())) { e in LockRingView(e: e) }
+            .configurationDisplayName("حلقة الاستغفار")
+            .description("لشاشة القفل. النقر يضيف استغفاراً.")
+            .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+    }
+}
+#endif
+
+#if WIDGET_EXTENSION
 struct StyleProvider: AppIntentTimelineProvider {
     func style(_ c: WirdStyleIntent) -> WStyle { WStyle(colors: c.colors, mode: c.mode, digits: c.digits, background: c.background, shape: c.shape) }
     func placeholder(in context: Context) -> IstEntry { IstEntry(date: Date(), state: placeholderState()) }
@@ -197,10 +239,13 @@ struct Theme {
         if let glass {
             // Liquid Glass (iOS 26): the wallpaper shows through, frosted or clear
             if #available(iOS 26.0, *) {
-                Rectangle().fill(.clear)
-                    .glassEffect(glass == .glassClear ? .clear : .regular, in: .rect(cornerRadius: 0))
+                if glass == .glassClear {
+                    Color.clear.glassEffect(.clear, in: ContainerRelativeShape())
+                } else {
+                    Color.clear.glassEffect(.regular.tint(.black.opacity(0.35)), in: ContainerRelativeShape())
+                }
             } else {
-                Rectangle().fill(.ultraThinMaterial)
+                Color(hex: c.bg2)
             }
         } else if solid { Color(hex: c.bg2) }
         else { LinearGradient(colors: [Color(hex: c.bg1), Color(hex: c.bg2)], startPoint: .topTrailing, endPoint: .bottomLeading) }
@@ -351,14 +396,19 @@ struct WeekBars: View {
 // MARK: - one widget, the shape is chosen in «تعديل الأداة»
 struct ShapeView: View {
     let e: IstEntry
+    var glass: Bool { e.style.background == .glassClear || e.style.background == .glassFrosted }
     var body: some View {
-        switch e.style.shape {
-        case .ring: RingView(e: e)
-        case .octagram: OctagramView(e: e)
-        case .button: ButtonView(e: e)
-        case .beads: BeadsView(e: e)
-        case .week: WeekView(e: e)
+        Group {
+            switch e.style.shape {
+            case .ring: RingView(e: e)
+            case .octagram: OctagramView(e: e)
+            case .button: ButtonView(e: e)
+            case .beads: BeadsView(e: e)
+            case .week: WeekView(e: e)
+            }
         }
+        // keeps light text readable over bright wallpapers on glass
+        .shadow(color: .black.opacity(glass ? 0.25 : 0), radius: 2, y: 1)
     }
 }
 
@@ -381,8 +431,8 @@ struct LockShapeView: View {
 struct RingWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.ring", intent: WirdStyleIntent.self, provider: StyleProvider()) { e in ShapeView(e: e) }
-            .configurationDisplayName("عدّاد الاستغفار")
-            .description("اضغط مطوّلاً ← «تعديل الأداة» لتختار الشكل والألوان والأرقام.")
+            .configurationDisplayName("عدّاد مخصّص")
+            .description("اضغط مطوّلاً ← «تعديل الأداة» لتختار الشكل والألوان والزجاج والأرقام.")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -690,7 +740,7 @@ struct WeekView: View {
 struct LockRingWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "wird.lock.ring", intent: WirdLockIntent.self, provider: LockProvider()) { e in LockShapeView(e: e) }
-            .configurationDisplayName("عدّاد الاستغفار")
+            .configurationDisplayName("عدّاد مخصّص")
             .description("لشاشة القفل. اختر الشكل من «تعديل الأداة». النقر يضيف استغفاراً.")
             .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
     }

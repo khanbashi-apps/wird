@@ -2,45 +2,17 @@ import Foundation
 import SwiftUI
 
 /// Shared storage between the app, its widgets and its intents.
-/// Signing tools often rename the App Group (e.g. add the team ID), so the real group is read
-/// from the installed provisioning profile. Without a group each side keeps its own copy.
+/// Without an App Group (some signing certificates don't allow one) each side keeps its own copy.
 enum WirdShared {
     static let baseGroup = "group.om.alkhanbashi.wird"
 
-    /// "group" | "keychain" | "pasteboard" | "local"
+    /// "group" | "local"
     static var mode: String { groupID != nil ? "group" : "local" }
     static var groupAvailable: Bool { mode != "local" }
 
     static let groupID: String? = {
-        var candidates: [String] = []
-        candidates += profileGroups()
-        candidates.append(baseGroup)
-        var app = Bundle.main.bundleIdentifier ?? ""
-        if Bundle.main.bundleURL.pathExtension == "appex" {
-            // om.alkhanbashi.wird.widgets(.XXXX) → om.alkhanbashi.wird(.XXXX)
-            app = app.replacingOccurrences(of: ".widgets", with: "")
-        }
-        if !app.isEmpty { candidates += ["group." + app, "group.\(app).shared"] }
-        var seen = Set<String>()
-        for g in candidates where !g.isEmpty && seen.insert(g).inserted {
-            if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: g) != nil { return g }
-        }
-        return nil
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: baseGroup) != nil ? baseGroup : nil
     }()
-
-    /// App groups listed in embedded.mobileprovision (the profile the signing tool used).
-    static func profileGroups() -> [String] {
-        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
-              let data = try? Data(contentsOf: url),
-              let start = data.range(of: Data("<?xml".utf8)),
-              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex) else { return [] }
-        let xml = data.subdata(in: start.lowerBound..<end.upperBound)
-        guard let plist = try? PropertyListSerialization.propertyList(from: xml, format: nil) as? [String: Any],
-              let ent = plist["Entitlements"] as? [String: Any] else { return [] }
-        let groups = (ent["com.apple.security.application-groups"] as? [String]) ?? []
-        // prefer groups that look like ours
-        return groups.filter { $0.contains("wird") } + groups.filter { !$0.contains("wird") && !$0.contains("*") }
-    }
 
     static var defaults: UserDefaults {
         if let g = groupID, let d = UserDefaults(suiteName: g) { return d }
