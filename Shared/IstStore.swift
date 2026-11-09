@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import UIKit
 import SwiftUI
 
 /// Shared storage between the app, its widgets and its intents.
@@ -8,8 +9,8 @@ import SwiftUI
 enum WirdShared {
     static let baseGroup = "group.om.alkhanbashi.wird"
 
-    /// "group" | "keychain" | "local"
-    static var mode: String { groupID != nil ? "group" : (Keychain.available ? "keychain" : "local") }
+    /// "group" | "keychain" | "pasteboard" | "local"
+    static var mode: String { groupID != nil ? "group" : (Keychain.available ? "keychain" : (SharedBoard.available ? "pasteboard" : "local")) }
     static var groupAvailable: Bool { mode != "local" }
 
     static let groupID: String? = {
@@ -51,6 +52,7 @@ enum WirdShared {
     static func data(forKey key: String) -> Data? {
         if groupID != nil { return defaults.data(forKey: key) }
         if Keychain.available { return Keychain.read(key) }
+        if SharedBoard.available, let d = SharedBoard.read(key) { return d }
         return UserDefaults.standard.data(forKey: key)
     }
 
@@ -58,6 +60,28 @@ enum WirdShared {
         if groupID != nil { defaults.set(data, forKey: key); return }
         if Keychain.available { Keychain.write(key, data); return }
         UserDefaults.standard.set(data, forKey: key)
+        if SharedBoard.available { SharedBoard.write(key, data) }
+    }
+}
+
+/// Last resort when the signing certificate allows neither App Groups nor shared Keychain:
+/// a named pasteboard, which apps and extensions signed by the same team can both open.
+enum SharedBoard {
+    static let name = UIPasteboard.Name("om.alkhanbashi.wird.shared")
+    static var board: UIPasteboard? { UIPasteboard(name: name, create: true) }
+    static let available: Bool = board != nil
+    private static func type(_ key: String) -> String { "om.alkhanbashi.wird." + key }
+
+    static func read(_ key: String) -> Data? {
+        guard let b = board, let item = b.items.first else { return nil }
+        return item[type(key)] as? Data
+    }
+
+    static func write(_ key: String, _ data: Data) {
+        guard let b = board else { return }
+        var item = b.items.first ?? [:]
+        item[type(key)] = data
+        b.setItems([item], options: [:])
     }
 }
 

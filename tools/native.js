@@ -95,7 +95,7 @@
   sheet.addEventListener('click', e => {
     if (!e.target.closest('.about')) return;
     aboutTaps++; clearTimeout(aboutT); aboutT = setTimeout(()=>aboutTaps=0, 1500);
-    if (aboutTaps >= 5){ aboutTaps = 0; toast('مشاركة البيانات مع الويدجت: ' + ({group:'مجموعة التطبيقات', keychain:'سلسلة المفاتيح', local:'غير متاحة'}[ENV.store] || '—')) }
+    if (aboutTaps >= 5){ aboutTaps = 0; toast('مشاركة البيانات مع الويدجت: ' + ({group:'مجموعة التطبيقات', keychain:'سلسلة المفاتيح', pasteboard:'الحافظة المشتركة (تجريبي)', local:'غير متاحة'}[ENV.store] || '—')) }
   });
   sheet.addEventListener('click', e => {
     const b = e.target.closest('[data-nat]'); if (!b) return;
