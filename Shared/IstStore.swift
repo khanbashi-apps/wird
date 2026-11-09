@@ -1,16 +1,14 @@
 import Foundation
-import Security
-import UIKit
 import SwiftUI
 
 /// Shared storage between the app, its widgets and its intents.
 /// Signing tools often rename the App Group (e.g. add the team ID), so the real group is read
-/// from the installed provisioning profile. If no group works, a shared Keychain item is used.
+/// from the installed provisioning profile. Without a group each side keeps its own copy.
 enum WirdShared {
     static let baseGroup = "group.om.alkhanbashi.wird"
 
     /// "group" | "keychain" | "pasteboard" | "local"
-    static var mode: String { groupID != nil ? "group" : (Keychain.available ? "keychain" : (SharedBoard.available ? "pasteboard" : "local")) }
+    static var mode: String { groupID != nil ? "group" : "local" }
     static var groupAvailable: Bool { mode != "local" }
 
     static let groupID: String? = {
@@ -51,106 +49,12 @@ enum WirdShared {
 
     static func data(forKey key: String) -> Data? {
         if groupID != nil { return defaults.data(forKey: key) }
-        if Keychain.available { return Keychain.read(key) }
-        if SharedBoard.available, let d = SharedBoard.read(key) { return d }
         return UserDefaults.standard.data(forKey: key)
     }
 
     static func set(_ data: Data, forKey key: String) {
         if groupID != nil { defaults.set(data, forKey: key); return }
-        if Keychain.available { Keychain.write(key, data); return }
         UserDefaults.standard.set(data, forKey: key)
-        if SharedBoard.available { SharedBoard.write(key, data) }
-    }
-}
-
-/// Last resort when the signing certificate allows neither App Groups nor shared Keychain:
-/// a named pasteboard, which apps and extensions signed by the same team can both open.
-enum SharedBoard {
-    static let name = UIPasteboard.Name("om.alkhanbashi.wird.shared")
-    static var board: UIPasteboard? { UIPasteboard(name: name, create: true) }
-    static let available: Bool = board != nil
-    private static func type(_ key: String) -> String { "om.alkhanbashi.wird." + key }
-
-    static func read(_ key: String) -> Data? {
-        guard let b = board, let item = b.items.first else { return nil }
-        return item[type(key)] as? Data
-    }
-
-    static func write(_ key: String, _ data: Data) {
-        guard let b = board else { return }
-        var item = b.items.first ?? [:]
-        item[type(key)] = data
-        b.setItems([item], options: [:])
-    }
-}
-
-/// Keychain items in a team-wide access group are readable by the app and its widget extension
-/// when the signing profile allows the team's keychain groups (most signing tools do).
-enum Keychain {
-    static let service = "om.alkhanbashi.wird.shared"
-
-    static let accessGroup: String? = {
-        // learn the team prefix from an item in the default group
-        let probe: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                    kSecAttrService as String: service + ".probe",
-                                    kSecAttrAccount as String: "probe"]
-        var q = probe
-        q[kSecReturnAttributes as String] = true
-        var out: CFTypeRef?
-        var st = SecItemCopyMatching(q as CFDictionary, &out)
-        if st == errSecItemNotFound {
-            var add = probe
-            add[kSecValueData as String] = Data([1])
-            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            add[kSecReturnAttributes as String] = true
-            st = SecItemAdd(add as CFDictionary, &out)
-        }
-        guard st == errSecSuccess, let attrs = out as? [String: Any],
-              let g = attrs[kSecAttrAccessGroup as String] as? String,
-              let dot = g.firstIndex(of: ".") else { return nil }
-        let team = String(g[..<dot])
-        return team + ".om.alkhanbashi.wird.shared"
-    }()
-
-    static let available: Bool = {
-        guard let g = accessGroup else { return false }
-        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                kSecAttrService as String: service,
-                                kSecAttrAccount as String: "check",
-                                kSecAttrAccessGroup as String: g]
-        SecItemDelete(q as CFDictionary)
-        var add = q
-        add[kSecValueData as String] = Data([1])
-        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
-    }()
-
-    private static func base(_ key: String) -> [String: Any] {
-        var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                kSecAttrService as String: service,
-                                kSecAttrAccount as String: key]
-        if let g = accessGroup { q[kSecAttrAccessGroup as String] = g }
-        return q
-    }
-
-    static func read(_ key: String) -> Data? {
-        var q = base(key)
-        q[kSecReturnData as String] = true
-        q[kSecMatchLimit as String] = kSecMatchLimitOne
-        var out: CFTypeRef?
-        return SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess ? out as? Data : nil
-    }
-
-    static func write(_ key: String, _ data: Data) {
-        let q = base(key)
-        let st = SecItemUpdate(q as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if st == errSecItemNotFound {
-            var add = q
-            add[kSecValueData as String] = data
-            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            SecItemAdd(add as CFDictionary, nil)
-        }
     }
 }
 

@@ -880,12 +880,14 @@ function period(){
   const h = nowH(), w = new Date().getDay();
   if ((w===4 && h>=T.maghrib) || (w===5 && h<T.maghrib)) return 'friday';
   if (h>=T.fajr && h<11) return 'morning';
+  if (h>=11 && h<T.asr) return 'day';
   if (h>=T.asr && h<T.isha+1.5) return 'evening';
   if (h>=T.fajr - ((24 - T.maghrib + T.fajr)/3) && h<T.fajr) return 'sahar';
   return 'night';
 }
 const PERIOD = {
   morning:{greet:'صباح الخير', sub:'وقت أذكار الصباح', target:'morning'},
+  day:{greet:'طاب يومك', sub:'ورد النهار', target:'istighfar'},
   evening:{greet:'مساء الخير', sub:'وقت أذكار المساء', target:'evening'},
   night:{greet:'ليلة هانئة', sub:'ورد ما قبل النوم', target:'mulk'},
   sahar:{greet:'وقت الأسحار', sub:'الثلث الأخير من الليل', target:'istighfar'},
@@ -950,7 +952,7 @@ const cart = t => `<span class="cart"><svg viewBox="0 0 300 60" preserveAspectRa
 function heroData(p){
   const t = PERIOD[p].target;
   if (t==='istighfar'){ const n = istToday(), g = istGoal();
-    return {title:'استغفار الأسحار', desc:'﴿وَبِالْأَسْحَارِ هُمْ يَسْتَغْفِرُونَ﴾', note:null, pct:Math.min(1,n/g), big:AR(n), small:'اليوم', go:'istighfar', btn: n?'أكمل الاستغفار':'ابدأ الاستغفار'} }
+    return {title: p==='day'?'الاستغفار':'استغفار الأسحار', desc: p==='day'?'«والله إني لأستغفر الله وأتوب إليه في اليوم أكثر من سبعين مرة» رواه البخاري':'﴿وَبِالْأَسْحَارِ هُمْ يَسْتَغْفِرُونَ﴾', note:null, pct:Math.min(1,n/g), big:AR(n), small:'اليوم', go:'istighfar', btn: n?'أكمل الاستغفار':'ابدأ الاستغفار'} }
   if (DATA[t]){
     const n = DATA[t].length, d = doneCount(t);
     return {title: t==='morning'?'أذكار الصباح':'أذكار المساء', desc: d===n ? 'أتممت الورد، تقبّل الله منك' : `أنجزت ${AR(d)} من ${AR(n)} ذكراً`,
@@ -980,7 +982,7 @@ function weekHTML(){
 function viewHome(){
   const p = period(), h = heroData(p);
   const tiles = [['morning','أذكار الصباح',I.sun],['evening','أذكار المساء',I.moon],['kahf','سورة الكهف',I.book],['mulk','سورة الملك',I.star]];
-  const pvName = {morning:'الصباح',evening:'المساء',night:'الليل',sahar:'الأسحار',friday:'الجمعة'};
+  const pvName = {morning:'الصباح',day:'النهار',evening:'المساء',night:'الليل',sahar:'الأسحار',friday:'الجمعة'};
   return `<div class="view">
   <div class="bar"><div class="bar-in wrap">
     <div class="brand"><div class="brand-ic"><svg viewBox="0 0 200 200" aria-hidden="true">${MARK}</svg></div><div><b>وِرد</b><small>أذكارك وسورك اليومية</small></div></div>
