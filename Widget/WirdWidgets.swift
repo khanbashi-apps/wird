@@ -7,11 +7,11 @@ import ActivityKit
 @main
 struct WirdWidgetBundle: WidgetBundle {
     var body: some Widget {
-        FixedWidget(kind: "wird.s.ring", shape: .ring, name: "الحلقة", info: "عدد اليوم حول حلقة الهدف. النقر يضيف استغفاراً.")
-        FixedWidget(kind: "wird.s.octagram", shape: .octagram, name: "النجمة الثمانية", info: "نفس عدّاد التطبيق، النجمة تدور مع كل استغفار.")
-        FixedWidget(kind: "wird.s.button", shape: .button, name: "زر الاستغفار", info: "الصيغة والعدد وزر +١ كبير.")
-        FixedWidget(kind: "wird.s.beads", shape: .beads, name: "السبحة", info: "حبات تضيء كلما اقتربت من هدفك.")
-        FixedWidget(kind: "wird.s.week", shape: .week, name: "أسبوع الاستغفار", info: "عدد كل يوم في آخر سبعة أيام.")
+        FixedRingWidget()
+        FixedOctagramWidget()
+        FixedButtonWidget()
+        FixedBeadsWidget()
+        FixedWeekWidget()
         RingWidget()
         FixedLockWidget()
         LockRingWidget()
@@ -167,15 +167,47 @@ struct FixedProvider: TimelineProvider {
     }
 }
 
-struct FixedWidget: Widget {
-    let kind: String
-    let shape: WShape
-    let name: String
-    let info: String
+struct FixedRingWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: FixedProvider(style: WStyle(shape: shape))) { e in ShapeView(e: e) }
-            .configurationDisplayName(name)
-            .description(info)
+        StaticConfiguration(kind: "wird.s.ring", provider: FixedProvider(style: WStyle(shape: .ring))) { e in ShapeView(e: e) }
+            .configurationDisplayName("الحلقة")
+            .description("عدد اليوم حول حلقة الهدف. النقر يضيف استغفاراً.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    }
+}
+
+struct FixedOctagramWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "wird.s.octagram", provider: FixedProvider(style: WStyle(shape: .octagram))) { e in ShapeView(e: e) }
+            .configurationDisplayName("النجمة الثمانية")
+            .description("نفس عدّاد التطبيق، النجمة تدور مع كل استغفار.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    }
+}
+
+struct FixedButtonWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "wird.s.button", provider: FixedProvider(style: WStyle(shape: .button))) { e in ShapeView(e: e) }
+            .configurationDisplayName("زر الاستغفار")
+            .description("الصيغة والعدد وزر +١ كبير.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    }
+}
+
+struct FixedBeadsWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "wird.s.beads", provider: FixedProvider(style: WStyle(shape: .beads))) { e in ShapeView(e: e) }
+            .configurationDisplayName("السبحة")
+            .description("حبات تضيء كلما اقتربت من هدفك.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    }
+}
+
+struct FixedWeekWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "wird.s.week", provider: FixedProvider(style: WStyle(shape: .week))) { e in ShapeView(e: e) }
+            .configurationDisplayName("أسبوع الاستغفار")
+            .description("عدد كل يوم في آخر سبعة أيام.")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
