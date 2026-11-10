@@ -9,7 +9,7 @@ concurrency:
   group: kufi-ipa
   cancel-in-progress: true
 env:
-  VER: "5.4"
+  VER: "5.5"
 jobs:
   build:
     runs-on: macos-26
@@ -58,6 +58,7 @@ jobs:
         run: |
           mkdir -p out
           { grep -E "error:" out/build-device.log || true; grep -E "error:" out/build-sim.log || true; } > out/errors.txt 2>/dev/null || true
+          [ -s out/errors.txt ] || echo "لا أخطاء" > out/errors.txt
           cat out/errors.txt
       - name: Publish release
         if: always()

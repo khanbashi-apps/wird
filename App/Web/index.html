@@ -194,7 +194,7 @@ input[type=range]{accent-color:var(--accent);width:150px}
 <div class="top" dir="rtl">
   <button class="proj" id="projBtn" aria-label="المشاريع">
     <span class="mark" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3 3h4v10h10v4H3z" fill="#F6F7F3"/><path d="M11 3h6v6h-6z" fill="#45B7AD"/></svg></span>
-    <span class="pt"><b id="projName">—</b><small>معمار الكوفي <span class="ver" id="ver">v5.4</span></small></span>
+    <span class="pt"><b id="projName">—</b><small>معمار الكوفي <span class="ver" id="ver">v5.5</span></small></span>
   </button>
   <button class="ib" id="themeBtn" aria-label="الوضع الليلي"><svg class="i" viewBox="0 0 24 24" id="themeIc"></svg></button>
   <button class="ib" id="undo" aria-label="تراجع"><svg class="i" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
@@ -255,7 +255,7 @@ input[type=range]{accent-color:var(--accent);width:150px}
 </script>
 <script>
 (()=>{
-const VERSION='v5.4';
+const VERSION='v5.5';
 const $=s=>document.querySelector(s);
 const cv=$('#cv'), ctx=cv.getContext('2d'), stage=$('#stage');
 const layer=document.createElement('canvas'), lctx=layer.getContext('2d');
@@ -342,7 +342,7 @@ const sample=()=>({
 let P=Object.assign({id:'p'+Date.now().toString(36)},sample());
 let tool='line', color=INKS[0], arcType='q';
 let dotK='dsq', dotN=1, dotDir='h', dotF=1, splitMode='knife';
-let sel=[], undoStack=[], redoStack=[], cornerStyle='round', cornerPct=0.5, curCorner=null;
+let sel=[], undoStack=[], redoStack=[], cornerStyle='round', cornerPct=0.5, curCorner=null, selCorner=null;
 let view={x:0,y:0,s:30};
 let midCustom=null,midSnap={x:false,y:false};
 let pickCenter=false,hand=false,midMode=0,eraseMode='part',eraseSize=0,actC=0; // midMode: 0 off, 1 drawing centre, 2 canvas centre
@@ -370,7 +370,7 @@ function blank(){return{id:'p'+Date.now().toString(36),name:'شعار جديد',
 function loadDoc(id,doc){
   let d={};try{d=JSON.parse(doc.data||'{}')}catch(e){}
   P={id,name:doc.name||'بدون اسم',shapes:d.shapes||[],grid:Object.assign({ortho:true,diag:true,circ:false,cx:0,cy:0,S:1,G:0,seg:24},d.grid||{}),palette:d.palette||[],env:envFromOld(d.env||null),ref:d.ref||null};loadRefImg();
-  sel=[];curCorner=null;undoStack=[];redoStack=[];
+  sel=[];curCorner=null;selCorner=null;undoStack=[];redoStack=[];
   if(d.view)view=d.view;else fit();
   setLast(id);refreshUI();draw();
 }
@@ -390,8 +390,8 @@ async function initStore(){
 /* ---------- history ---------- */
 function snap(){undoStack.push(JSON.stringify(P.shapes));if(undoStack.length>150)undoStack.shift();redoStack=[]}
 function commit(){pruneCorners();scheduleSave();refreshUI();draw()}
-function undo(){if(!undoStack.length)return;redoStack.push(JSON.stringify(P.shapes));P.shapes=JSON.parse(undoStack.pop());sel=[];curCorner=null;scheduleSave();refreshUI();draw()}
-function redo(){if(!redoStack.length)return;undoStack.push(JSON.stringify(P.shapes));P.shapes=JSON.parse(redoStack.pop());sel=[];curCorner=null;scheduleSave();refreshUI();draw()}
+function undo(){if(!undoStack.length)return;redoStack.push(JSON.stringify(P.shapes));P.shapes=JSON.parse(undoStack.pop());sel=[];curCorner=null;selCorner=null;scheduleSave();refreshUI();draw()}
+function redo(){if(!redoStack.length)return;undoStack.push(JSON.stringify(P.shapes));P.shapes=JSON.parse(redoStack.pop());sel=[];curCorner=null;selCorner=null;scheduleSave();refreshUI();draw()}
 
 /* ---------- lattice ---------- */
 const eq=(a,b)=>Math.abs(a[0]-b[0])<EPS&&Math.abs(a[1]-b[1])<EPS;
@@ -741,6 +741,8 @@ function render(){
     if(depthGuide.x!=null){ctx.moveTo(depthGuide.x,d.y-R);ctx.lineTo(depthGuide.x,d.y+R)}if(depthGuide.y!=null){ctx.moveTo(d.x-R,depthGuide.y);ctx.lineTo(d.x+R,depthGuide.y)}ctx.stroke();ctx.restore()}
   if(tool==='depth')P.shapes.filter(d=>d.t==='depth').forEach(d=>{const on=d===curDepth;ctx.beginPath();ctx.arc(d.x,d.y,(on?8:6)*px,0,Math.PI*2);ctx.fillStyle=on?'#6B4E9B':'rgba(107,78,155,.75)';ctx.fill();ctx.lineWidth=2*px;ctx.strokeStyle='#fff';ctx.stroke();
     ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(d.x+Math.cos(d.a)*d.len,d.y+Math.sin(d.a)*d.len);ctx.strokeStyle='rgba(107,78,155,.8)';ctx.setLineDash([3*px,3*px]);ctx.stroke();ctx.setLineDash([])});
+  if(tool==='corner'){for(const v of roundedVerts()){const on=selCorner&&Math.hypot(v[0]-selCorner.v[0],v[1]-selCorner.v[1])<1e-4;ctx.beginPath();ctx.arc(v[0],v[1],(on?16:5)*px,0,Math.PI*2);
+    if(on){ctx.lineWidth=5*px;ctx.strokeStyle='rgba(255,255,255,.85)';ctx.stroke();ctx.lineWidth=3*px;ctx.strokeStyle='#B8862B';ctx.stroke()}else{ctx.lineWidth=2*px;ctx.strokeStyle='rgba(184,134,43,.9)';ctx.stroke()}}}
   if(tool==='corner')P.shapes.filter(k=>k.t==='corner').forEach(k=>{ctx.beginPath();ctx.arc(k.x,k.y,(k===curCorner?7:4.5)*px,0,Math.PI*2);ctx.fillStyle=k===curCorner?'#B8862B':'rgba(184,134,43,.75)';ctx.fill();if(k===curCorner){ctx.lineWidth=2*px;ctx.strokeStyle='#fff';ctx.stroke()}});
   if(preview){ctx.globalAlpha=.55;SCREEN_DARK=DK;paintShapes(ctx,[preview]);SCREEN_DARK=false;ctx.globalAlpha=1;
     if(preview.t==='arc'&&gest&&gest.box){const[b0,b1,b2,b3]=gest.box;ctx.strokeStyle=TL+'.8)';ctx.lineWidth=1.5*px;ctx.setLineDash([4*px,4*px]);ctx.strokeRect(Math.min(b0,b2),Math.min(b1,b3),Math.abs(b2-b0),Math.abs(b3-b1));ctx.setLineDash([])}}
@@ -1246,26 +1248,59 @@ function bakeComponent(list,polys){ // replace the letter's pieces by one outlin
   const col=list[0].c,b=unionBox(list);
   P.shapes=P.shapes.filter(s=>!list.includes(s)&&!(s.t==='corner'&&s.x>=b.x0-.01&&s.x<=b.x1+.01&&s.y>=b.y0-.01&&s.y<=b.y1+.01));
   const keys=new Set(polys.flatMap(r=>r.map(ftKey))),keep=[...FT].filter(([k])=>keys.has(k));
-  const sh={t:'poly',polys:polys.map(r=>r.map(p=>[+p[0].toFixed(5),+p[1].toFixed(5)])),c:col,ft:keep};if(list.some(x=>x.il))sh.il=list.find(x=>x.il).il;P.shapes.push(sh);return sh}
+  const vk=new Set(keep.map(e=>ftKey(e[1]))),cm=[...CM].filter(([k])=>vk.has(k));
+  const sh={t:'poly',polys:polys.map(r=>r.map(p=>[+p[0].toFixed(5),+p[1].toFixed(5)])),c:col,ft:keep};if(cm.length)sh.cm=cm;if(list.some(x=>x.il))sh.il=list.find(x=>x.il).il;P.shapes.push(sh);return sh}
+let CM=new Map(); // original corner vertex -> {s:style,r:ratio}
+function loadFT(comp){FT=new Map(comp.flatMap(c=>(c.ft||[]).filter(e=>Array.isArray(e))));CM=new Map(comp.flatMap(c=>(c.cm||[]).filter(e=>Array.isArray(e))))}
+function roundedVerts(){const seen=new Map();for(const s of P.shapes)for(const e of(s.ft||[]))if(Array.isArray(e)&&e[1]){const k=ftKey(e[1]);if(!seen.has(k))seen.set(k,e[1])}return[...seen.values()]}
+function sideRuns(ring,i){const n=ring.length,L=(a,b)=>Math.hypot(b[0]-a[0],b[1]-a[1]),isC=j=>j!==i&&(turnAt(ring,j)>CORNER_MIN||FT.has(ftKey(ring[j])));
+  let rb=0,j=i;for(let q=0;q<n;q++){const pj=(j-1+n)%n;rb+=L(ring[j],ring[pj]);j=pj;if(isC(j)||j===i)break}const cb=FT.get(ftKey(ring[j])),Fb=cb?L(ring[i],cb):rb;
+  let rf=0;j=i;for(let q=0;q<n;q++){const nj=(j+1)%n;rf+=L(ring[j],ring[nj]);j=nj;if(isC(j)||j===i)break}const cf=FT.get(ftKey(ring[j])),Ff=cf?L(ring[i],cf):rf;return{Fb,Ff}}
+// put a rounded/chamfered corner back to its sharp vertex; returns {ring,style,ratio} or null
+function unfillet(ring,V){const n=ring.length,vk=ftKey(V),idx=[];ring.forEach((p,i)=>{const o=FT.get(ftKey(p));if(o&&ftKey(o)===vk)idx.push(i)});if(idx.length<2)return null;
+  let best=null;for(const ia of idx)for(const ib of idx){if(ia===ib)continue;const d=(ib-ia+n)%n;if(!best||d<best.d)best={ia,ib,d}}
+  if(!best||best.d>40)return null;const rr=ring.slice(best.ia).concat(ring.slice(0,best.ia)),A=rr[0],nr=[V.slice(),...rr.slice(best.d+1)];
+  idx.forEach(i=>FT.delete(ftKey(ring[i])));const meta=CM.get(vk);
+  let style=meta?meta.s:(best.d>1?'round':'cham'),ratio=meta?meta.r:null;
+  if(ratio==null){const t=Math.hypot(A[0]-V[0],A[1]-V[1]),sr=sideRuns(nr,0),m=0.5*Math.min(sr.Fb,sr.Ff);ratio=m>0?Math.max(.05,Math.min(1,Math.round(t/m*20)/20)):cornerPct}
+  CM.delete(vk);return{ring:nr,style,ratio}}
+function cornerComp(w,tol){const wk=ftKey(w),seed=P.shapes.find(s=>(s.ft||[]).some(e=>Array.isArray(e)&&e[1]&&ftKey(e[1])===wk))||[...P.shapes].reverse().find(s=>s.t!=='corner'&&isGeo(s)&&shapeHit(s,w,tol));if(!seed)return null;
+  const comp=sameColorComponent(seed),out=outlineOf(comp);loadFT(comp);return{comp,out}}
+// apply style/ratio to one corner (sharp, or already rounded at V)
+function setCornerAt(V,style,ratio){
+  let cc;try{cc=cornerComp(V,Math.max(.2,10/view.s))}catch(e){cc=null}if(!cc){toast('تعذر العثور على الزاوية');selCorner=null;refreshUI();draw();return false}
+  const{comp,out}=cc;let hit=null;
+  out.forEach((poly,pi)=>poly.forEach((r,ri)=>{if(hit)return;const u=unfillet(r,V);if(u){hit={pi,ri,ring:u.ring,i:0};return}
+    const i=r.findIndex(p=>Math.hypot(p[0]-V[0],p[1]-V[1])<1e-4);if(i>=0)hit={pi,ri,ring:r,i}}));
+  if(!hit){toast('تعذر العثور على الزاوية');return false}
+  snap();let nr=hit.ring;
+  if(style!=='sharp'){try{const f=filletAt(hit.ring,hit.i,ratio,style);if(f===hit.ring){undoStack.pop();toast('الزاوية صغيرة جداً');return false}nr=f;CM.set(ftKey(V),{s:style,r:ratio})}catch(e){undoStack.pop();toast('تعذر تعديل الزاوية');return false}}
+  out[hit.pi][hit.ri]=nr;bakeComponent(comp,out.flat());commit();return true}
 function cornerTap(w){
   if(!PCL){toast('أداة الزوايا غير متاحة');return}
-  const tol=16/view.s,seed=[...P.shapes].reverse().find(s=>s.t!=='corner'&&isGeo(s)&&shapeHit(s,w,tol));
-  if(!seed){toast('المس زاوية في الرسم');return}
-  let comp,out;try{comp=sameColorComponent(seed);out=outlineOf(comp)}catch(e){toast('تعذر حساب حدود الشكل');return}
-  FT=new Map(comp.flatMap(c=>(c.ft||[]).filter(e=>Array.isArray(e))));
-  let best=null;out.forEach((poly,pi)=>poly.forEach((r,ri)=>r.forEach((p,i)=>{const d=Math.hypot(p[0]-w[0],p[1]-w[1]);if(turnAt(r,i)>CORNER_MIN&&(!best||d<best.d))best={d,pi,ri,i}})));
-  if(!best||best.d*view.s>34){toast('المس رأس الزاوية بالضبط');return}
-  const R=cornerPct;snap();
-  try{const r=out[best.pi][best.ri],nr=filletAt(r,best.i,R,cornerStyle);if(nr===r){undoStack.pop();toast('الزاوية صغيرة جداً للتقويس');return}out[best.pi][best.ri]=nr}catch(e){undoStack.pop();toast('تعذر تقويس هذه الزاوية');return}
-  bakeComponent(comp,out.flat());commit();
+  const lim=34/view.s;
+  // 1) an existing rounded / chamfered corner: select it to show and edit its settings
+  let rv=null;for(const v of roundedVerts()){const d=Math.hypot(v[0]-w[0],v[1]-w[1]);if(d<lim&&(!rv||d<rv.d))rv={d,v}}
+  let cc;try{cc=cornerComp(w,16/view.s)}catch(e){toast('تعذر حساب حدود الشكل');return}
+  let best=null;if(cc)cc.out.forEach((poly,pi)=>poly.forEach((r,ri)=>r.forEach((p,i)=>{const d=Math.hypot(p[0]-w[0],p[1]-w[1]);if(turnAt(r,i)>CORNER_MIN&&!FT.has(ftKey(p))&&(!best||d<best.d))best={d,pi,ri,i,p}})));
+  if(rv&&(!best||rv.d<=best.d+1e-6)){
+    // read its current style/ratio
+    let info={s:'round',r:cornerPct};try{const c2=cornerComp(rv.v,Math.max(.2,10/view.s));if(c2){const m=CM.get(ftKey(rv.v));if(m)info=m;else for(const poly of c2.out)for(const r of poly){const u=unfillet(r,rv.v);if(u){info={s:u.style,r:u.ratio};break}}}}catch(e){}
+    selCorner={v:rv.v.slice(),s:info.s,r:info.r};refreshUI();draw();return}
+  if(!cc||!best||best.d>lim){if(selCorner){selCorner=null;refreshUI();draw()}else toast('المس رأس الزاوية بالضبط');return}
+  // 2) a sharp corner: apply the current style right away (quick mode), then keep it selected
+  const V=best.p.slice();
+  if(setCornerAt(V,cornerStyle,cornerPct)){selCorner={v:V,s:cornerStyle,r:cornerPct};refreshUI();draw()}
 }
+function editSelCorner(style,ratio){if(!selCorner)return;const V=selCorner.v;
+  if(setCornerAt(V,style,ratio)){selCorner=style==='sharp'?null:{v:V,s:style,r:ratio};if(style==='sharp')toast('عادت الزاوية حادة')}refreshUI();draw()}
 function cornersAll(){
   if(!PCL)return;const base=(sel.length?sel:P.shapes).filter(s=>s.t!=='corner'&&isGeo(s));if(!base.length)return;
   const done=new Set(),R=cornerPct;let n=0,made=[];snap();
   for(const s of base){if(done.has(s)||!P.shapes.includes(s))continue;let comp,out;try{comp=sameColorComponent(s);out=outlineOf(comp)}catch(e){continue}
-    comp.forEach(c=>done.add(c));FT=new Map(comp.flatMap(c=>(c.ft||[]).filter(e=>Array.isArray(e))));
+    comp.forEach(c=>done.add(c));loadFT(comp);
     out=out.map(poly=>poly.map(r=>{const targets=r.filter((p,i)=>turnAt(r,i)>CORNER_MIN);let cur=r;
-      for(const t of targets){const i=cur.findIndex(p=>p[0]===t[0]&&p[1]===t[1]);if(i<0)continue;const nr=filletAt(cur,i,R,cornerStyle);if(nr!==cur){cur=nr;n++}}
+      for(const t of targets){const i=cur.findIndex(p=>p[0]===t[0]&&p[1]===t[1]);if(i<0)continue;const nr=filletAt(cur,i,R,cornerStyle);if(nr!==cur){CM.set(ftKey(t),{s:cornerStyle,r:R});cur=nr;n++}}
       return cur}));
     made.push(bakeComponent(comp,out.flat()))}
   if(!n){undoStack.pop();toast('لم أجد زوايا')}else{if(sel.length)sel=made;toast('تم تقويس '+n+' زاوية');commit()}
@@ -1336,7 +1371,7 @@ const dock=$('#dock');
 TOOLS.forEach(t=>{if(!t){const d=document.createElement('span');d.className='sep';dock.appendChild(d);return}
   const b=document.createElement('button');b.className='tool';b.dataset.tool=t[0];b.innerHTML=ic(t[2])+t[1];b.onclick=()=>setTool(t[0]);dock.appendChild(b)});
 function snapEnvEdge(v){const E=P.env,i=envSel.i,j=E.sym?mirrorEdge(E,i):-1;E.bulge[i]=v;if(j>=0)E.bulge[j]=v;scheduleSave();refreshUI();draw()}
-function setTool(t){curDepth=null;tool=t;envSel=null;sel=[];curCorner=null;pickCenter=false;closePop();
+function setTool(t){curDepth=null;selCorner=null;tool=t;envSel=null;sel=[];curCorner=null;pickCenter=false;closePop();
   document.querySelectorAll('.tool').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));
   $('#envBtn').setAttribute('aria-pressed',t==='env');$('#refBtn').setAttribute('aria-pressed',t==='ref');refreshUI();draw()}
 $('#undo').onclick=undo;$('#redo').onclick=redo;
@@ -1444,10 +1479,17 @@ function refreshUI(){
       break;
     case'corner':
       if(cornerStyle==='sharp')cornerStyle='round';if(cornerPct>1)cornerPct=1;
-      add(Gp('النمط',segCtl([['round','دائرية','round'],['cham','مشطوفة','cham']],cornerStyle,k=>{cornerStyle=k;refreshUI()},'icons')),
-        Gp('النسبة',stepperF('',Math.round(cornerPct*100),5,100,5,v=>{cornerPct=v/100;refreshUI()},'%'),segCtl([[0.25,'¼'],[0.5,'½'],[1,'كامل']],cornerPct,k=>{cornerPct=+k;refreshUI()})),
+      if(selCorner){const sc=selCorner;
+        add(Gp('الزاوية المحددة — '+(sc.s==='cham'?'مشطوفة':'دائرية')+' '+Math.round(sc.r*100)+'%',
+          segCtl([['round','دائرية','round'],['cham','مشطوفة','cham'],['sharp','حادة','corner']],sc.s,k=>editSelCorner(k,sc.r),'icons')),
+          Gp('نسبة هذه الزاوية',stepperF('النسبة',Math.round(sc.r*100),5,100,5,v=>editSelCorner(sc.s,v/100),'%'),chip('إلغاء التحديد','',()=>{selCorner=null;refreshUI();draw()}),
+            segCtl([[0.25,'¼'],[0.5,'½'],[0.75,'¾'],[1,'كامل']],sc.r,k=>editSelCorner(sc.s,+k))),
+          Gp('اجعلها الافتراضي',chip('استخدم إعدادها للزوايا الجديدة','dup',()=>{cornerStyle=sc.s;cornerPct=sc.r;toast('صار هذا الإعداد هو الافتراضي');refreshUI()})));
+        hintTxt('التعديل يظهر مباشرة. المس زاوية أخرى لاختيارها، أو مكاناً فارغاً للإلغاء');break}
+      add(Gp('النمط للزوايا الجديدة',segCtl([['round','دائرية','round'],['cham','مشطوفة','cham']],cornerStyle,k=>{cornerStyle=k;refreshUI()},'icons')),
+        Gp('النسبة',stepperF('النسبة',Math.round(cornerPct*100),5,100,5,v=>{cornerPct=v/100;refreshUI()},'%'),segCtl([[0.25,'¼'],[0.5,'½'],[0.75,'¾'],[1,'كامل']],cornerPct,k=>{cornerPct=+k;refreshUI()})),
         Gp('دفعة واحدة',chip(sel.length?'كل زوايا التحديد':'كل زوايا الرسم','all',cornersAll)));
-      hintTxt('المس رأس الزاوية. 100% طرف دائري كامل، وتتساوى زاويتا طرف الخط دائماً');break;
+      hintTxt('زاوية حادة: تُقوَّس فوراً. زاوية مقوّسة (دائرة ذهبية): تظهر معلوماتها لتعدّلها');break;
     case'split':
       add(Gp('الوضع',segCtl([['knife','مقص','scissors'],['cut','فصل خط','split'],['paint','تلوين','brush']],splitMode,k=>{splitMode=k;refreshUI()})),colG());
       hintTxt(splitMode==='knife'?'اسحب خطاً عبر أي شكل لقصه إلى جزأين (يلتصق بزوايا 45°)':splitMode==='paint'?'المس أي جزء لتلوينه باللون المختار':'المس الخط في مكان القطع');break;
