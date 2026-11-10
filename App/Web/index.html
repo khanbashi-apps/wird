@@ -194,7 +194,7 @@ input[type=range]{accent-color:var(--accent);width:150px}
 <div class="top" dir="rtl">
   <button class="proj" id="projBtn" aria-label="المشاريع">
     <span class="mark" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3 3h4v10h10v4H3z" fill="#F6F7F3"/><path d="M11 3h6v6h-6z" fill="#45B7AD"/></svg></span>
-    <span class="pt"><b id="projName">—</b><small>معمار الكوفي <span class="ver" id="ver">v5.6</span></small></span>
+    <span class="pt"><b id="projName">—</b><small>معمار الكوفي <span class="ver" id="ver">v5.5</span></small></span>
   </button>
   <button class="ib" id="themeBtn" aria-label="الوضع الليلي"><svg class="i" viewBox="0 0 24 24" id="themeIc"></svg></button>
   <button class="ib" id="undo" aria-label="تراجع"><svg class="i" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
@@ -255,7 +255,7 @@ input[type=range]{accent-color:var(--accent);width:150px}
 </script>
 <script>
 (()=>{
-const VERSION='v5.6';
+const VERSION='v5.5';
 const $=s=>document.querySelector(s);
 const cv=$('#cv'), ctx=cv.getContext('2d'), stage=$('#stage');
 const layer=document.createElement('canvas'), lctx=layer.getContext('2d');
@@ -1005,29 +1005,28 @@ function svgInline(){let o='',n=0;
 let IL={out:false,c:'#FFFFFF',w:0.12,d:0.3,two:false,gap:0.2,join:'round'};
 function openInline(){
   const targets=(sel.length?sel:P.shapes).filter(s=>s.t!=='corner'&&isGeo(s));if(!targets.length){toast('ارسم شيئاً أولاً');return}
-  const cur=targets.find(s=>s.il),S0=P.grid.S;IL=cur?{two:false,gap:0.2*S0,join:'round',mid:false,...cur.il,...(cur.il.pair?{two:true}:{})}:{out:false,mid:true,c:IL.c||'#FFFFFF',w:0.08*S0,d:0.25*S0,two:false,gap:0.2*S0,join:'miter'};
-  const midD=()=>{const S=P.grid.S;IL.d=Math.max(IL.w/2+0.01,IL.two?(S-IL.w-IL.gap)/2:S/2)};
+  const cur=targets.find(s=>s.il),S0=P.grid.S;IL=cur?{two:false,gap:0.2*S0,join:'round',...cur.il}:{out:false,c:IL.c||'#FFFFFF',w:0.08*S0,d:0.25*S0,two:false,gap:0.2*S0,join:'miter'};
   const S=P.grid.S,sh=sheet(`<div class="sh-head"><h2>خط زخرفي</h2>${closeX}</div>
     <p class="note">خط رفيع يمشي بموازاة حواف ${sel.length?'الأشكال المحددة':'الشعار كاملاً'}، داخل الحرف أو حوله.</p>
     <div class="srow"><span class="k">المكان</span><div id="ilPos"></div></div>
     <div class="srow"><span class="k">عدد الخطوط</span><div id="ilN"></div></div>
     <div class="srow"><span class="k">الزوايا</span><div id="ilJ"></div></div>
     <div class="srow"><span class="k">السماكة</span><div id="ilW"></div></div>
-    <div class="srow" id="ilDrow"><span class="k">البعد عن الحافة</span><div id="ilD"></div></div>
+    <div class="srow"><span class="k">البعد عن الحافة</span><div id="ilD"></div></div>
     <div class="srow"><span class="k">اللون</span><div id="ilC"></div></div>
     <button class="btn" id="ilGo">تطبيق</button><button class="chip" id="ilOff" style="justify-content:center">${ic('trash')}إزالة الخط الزخرفي</button>`);
   const fill=()=>{const q=id=>{const e=sh.querySelector(id);e.innerHTML='';return e};
-    q('#ilPos').appendChild(segCtl([['mid','في منتصف الخط'],['in','داخل الحرف'],['out','حول الحرف']],IL.mid?'mid':IL.out?'out':'in',k=>{IL.mid=k==='mid';IL.out=k==='out';fill()}));if(IL.mid)midD();sh.querySelector('#ilDrow').hidden=IL.mid&&!IL.two;
+    q('#ilPos').appendChild(segCtl([['in','داخل الحرف'],['out','حول الحرف']],IL.out?'out':'in',k=>{IL.out=k==='out';fill()}));
     q('#ilN').appendChild(segCtl([[1,'خط واحد'],[2,'خطان']],IL.two?2:1,k=>{IL.two=+k===2;fill()}));
     const jn=q('#ilJ');jn.appendChild(segCtl([['miter','حادة'],['round','مقوسة']],IL.join,k=>{IL.join=k;fill()}));
     q('#ilW').appendChild(stepperF('',+(IL.w/S).toFixed(2),0.02,0.5,0.02,v=>{IL.w=v*S;fill()}));
-    const dd=q('#ilD');if(!IL.mid)dd.appendChild(stepperF('',+(IL.d/S).toFixed(2),0.05,1.5,0.05,v=>{IL.d=v*S;fill()}));
+    const dd=q('#ilD');dd.appendChild(stepperF('',+(IL.d/S).toFixed(2),0.05,1.5,0.05,v=>{IL.d=v*S;fill()}));
     if(IL.two)dd.appendChild(stepperF('بين الخطين',+(IL.gap/S).toFixed(2),0.05,1,0.05,v=>{IL.gap=v*S;fill()}));
     const cc=q('#ilC');cc.style.cssText='display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end';
     [...new Set(['#FFFFFF',...MYC.get(),...(P.palette||[]),...INKS])].slice(0,12).forEach(c=>{const b=el('button','swatch');b.style.background=c;b.setAttribute('aria-label',c);b.setAttribute('aria-pressed',c.toLowerCase()===IL.c.toLowerCase());if(c.toLowerCase()===IL.c.toLowerCase())b.style.boxShadow='0 0 0 2px var(--accent)';b.onclick=()=>{IL.c=c;fill()};cc.appendChild(b)});
     const cu=el('label','custom');cu.innerHTML=`<input type="color" value="${IL.c}" aria-label="لون مخصص">`;cu.querySelector('input').oninput=e=>{IL.c=e.target.value};cu.querySelector('input').onchange=()=>fill();cc.appendChild(cu)};
   fill();
-  sh.querySelector('#ilGo').onclick=()=>{snap();if(IL.mid)midD();const pair=!!(IL.mid&&IL.two);targets.forEach(s=>s.il={out:IL.out,mid:!!IL.mid,pair,c:IL.c,w:+IL.w.toFixed(3),d:+IL.d.toFixed(3),two:pair?false:IL.two,gap:+IL.gap.toFixed(3),join:IL.join});closeSheet();commit();toast('أُضيف الخط الزخرفي')};
+  sh.querySelector('#ilGo').onclick=()=>{snap();targets.forEach(s=>s.il={out:IL.out,c:IL.c,w:+IL.w.toFixed(3),d:+IL.d.toFixed(3),two:IL.two,gap:+IL.gap.toFixed(3),join:IL.join});closeSheet();commit();toast('أُضيف الخط الزخرفي')};
   sh.querySelector('#ilOff').onclick=()=>{snap();targets.forEach(s=>delete s.il);closeSheet();commit()};
 }
 /* ---------- depth: a soft shadow where a stroke passes under another ---------- */
@@ -1455,7 +1454,7 @@ function refreshUI(){
       if(g.circ){add(circleGroups(u));if(g.rmode==='par'||g.rmode==='band')add(Gp('سريع',chip('املأ الحلقات','paint',fillRings)));hintTxt('المس القطع للتلوين، واسحب المركز الذهبي لتحريك الدائرة')}
       add(colG());break}
     case'dots':
-      add(Gp('النوع',segCtl([['dots','نقاط الحروف'],['orn','زخارف']],dotsCat,k=>{dotsCat=k;refreshUI()})),Gp('خط داخل الحرف',chip('خط زخرفي في المنتصف','inline',openInline)));
+      add(Gp('النوع',segCtl([['dots','نقاط الحروف'],['orn','زخارف']],dotsCat,k=>{dotsCat=k;refreshUI()})));
       if(dotsCat==='orn'){
         add(Gp('الشكل',segCtl(ORN.map(([k,t,i])=>[k,t,i]),ornK,k=>{ornK=k;refreshUI()},'icons')));
         add(Gp('المقاس',ornK!=='crescent'?segCtl([[0,'مفرغ'],[1,'ممتلئ']],ornFill?1:0,k=>{ornFill=!!+k;refreshUI()}):null,
