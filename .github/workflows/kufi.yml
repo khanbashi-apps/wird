@@ -1,0 +1,69 @@
+name: kufi-ipa
+on:
+  push:
+    branches: [kufi-memar]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: kufi-ipa
+  cancel-in-progress: true
+env:
+  VER: "5.4"
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          echo "Using $X"; sudo xcode-select -s "$X"; xcodebuild -version
+      - name: Generate project
+        run: |
+          brew install xcodegen >/dev/null
+          xcodegen generate
+      - name: Build for iPhone (unsigned)
+        run: |
+          set -o pipefail
+          mkdir -p out
+          xcodebuild -project Kufi.xcodeproj -target Kufi -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee out/build-device.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" | head -100
+      - name: Package IPA
+        run: |
+          APP=build/Release-iphoneos/Kufi.app
+          ls "$APP" "$APP/Web"
+          plutil -p "$APP/Info.plist"
+          codesign -f -s - "$APP" || true
+          mkdir -p out/Payload && cp -R "$APP" out/Payload/
+          (cd out && zip -qry "Kufi-$VER.ipa" Payload && rm -rf Payload)
+          ls -la out
+      - name: Build for Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project Kufi.xcodeproj -target Kufi -configuration Debug -sdk iphonesimulator -arch arm64 \
+            SYMROOT="$PWD/buildsim" CODE_SIGNING_ALLOWED=NO build 2>&1 | tee out/build-sim.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" | head -100
+      - name: Screenshot in Simulator
+        run: |
+          DEV=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=[x for r in d for x in d[r] if 'iPhone' in x['name'] and 'Pro' in x['name'] and 'Max' not in x['name']]; print(c[-1]['udid'])")
+          xcrun simctl boot "$DEV"; xcrun simctl bootstatus "$DEV" -b
+          xcrun simctl install "$DEV" buildsim/Debug-iphonesimulator/Kufi.app
+          xcrun simctl ui "$DEV" appearance dark
+          xcrun simctl launch "$DEV" om.alkhanbashi.kufi; sleep 10
+          xcrun simctl io "$DEV" screenshot out/shot-dark.png
+          xcrun simctl ui "$DEV" appearance light; sleep 3
+          xcrun simctl io "$DEV" screenshot out/shot-light.png
+      - name: Collect errors
+        if: always()
+        run: |
+          mkdir -p out
+          { grep -E "error:" out/build-device.log || true; grep -E "error:" out/build-sim.log || true; } > out/errors.txt 2>/dev/null || true
+          cat out/errors.txt
+      - name: Publish release
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "kufi-v$VER" --yes --cleanup-tag || true
+          FILES=$(ls out/*.ipa out/*.png out/errors.txt 2>/dev/null)
+          gh release create "kufi-v$VER" $FILES --title "معمار الكوفي $VER" --notes "نسخة غير موقّعة من معمار الكوفي v$VER للتثبيت بأداة التوقيع. تعمل دون إنترنت." --target "$GITHUB_SHA" --latest=false

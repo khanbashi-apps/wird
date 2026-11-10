@@ -1,0 +1,52 @@
+name: Kufi
+options:
+  bundleIdPrefix: om.alkhanbashi
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: ar
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGN_IDENTITY: ""
+    MARKETING_VERSION: "5.4"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+targets:
+  Kufi:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes: ["Web/**"]
+      - path: App/Web
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: om.alkhanbashi.kufi
+        PRODUCT_NAME: Kufi
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: "NO"
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: "معمار الكوفي"
+        CFBundleName: "Kufi"
+        CFBundleDevelopmentRegion: ar
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: LaunchBG
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIRequiresFullScreen: true
+        UIViewControllerBasedStatusBarAppearance: true
+        NSPhotoLibraryAddUsageDescription: "لحفظ الشعار في الصور"
+        NSPhotoLibraryUsageDescription: "لاختيار صورة مرجعية للرسم فوقها"
+        NSCameraUsageDescription: "لالتقاط صورة مرجعية"
+        ITSAppUsesNonExemptEncryption: false
